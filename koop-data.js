@@ -28,7 +28,7 @@ KP.data = (function () {
     const o = {}; (await gv("KP_Tetapan")).forEach((r) => { try { o[r.KUNCI] = JSON.parse(r.NILAI); } catch (e) {} });
     return o;
   }
-  const bOut = (x) => ({ kod: s(x.KOD), nama: s(x.NAMA), kategori: s(x.KATEGORI), unit: s(x.UNIT), kos: n(x.KOS), jual: n(x.JUAL), stok: n(x.STOK), min: n(x.MIN), lr: f1(x.LR), as: f1(x.AS), t: [1, 2, 3, 4, 5, 6].map((i) => f1(x["T" + i])), aktif: f1(x.AKTIF) });
+  const bOut = (x) => ({ barcode: s(x.BARCODE).trim(), kod: s(x.KOD), nama: s(x.NAMA), kategori: s(x.KATEGORI), unit: s(x.UNIT), kos: n(x.KOS), jual: n(x.JUAL), stok: n(x.STOK), min: n(x.MIN), lr: f1(x.LR), as: f1(x.AS), t: [1, 2, 3, 4, 5, 6].map((i) => f1(x["T" + i])), aktif: f1(x.AKTIF) });
   const isSet = (b) => ((b.lr || b.as) && b.t.every((v) => v) ? 1 : 0);
 
   async function allBarang() { return (await gv("KP_Barang")).filter((x) => s(x.KOD)).map(bOut).filter((b) => b.aktif).map((b) => Object.assign(b, { set: isSet(b) })); }
@@ -79,5 +79,9 @@ KP.data = (function () {
     return { success: true, pengguna: (await gv("KP_Pengguna")).filter((x) => s(x.EMEL)).map((x) => { const a = x.PERANAN === "Admin"; return { emel: s(x.EMEL).toLowerCase(), nama: s(x.NAMA), peranan: s(x.PERANAN), admin: a, jualan: a || !!f1(x.JUALAN), stok: a || !!f1(x.STOK), inventori: a || !!f1(x.INVENTORI), laporan: a || !!f1(x.LAPORAN), aktif: f1(x.AKTIF) }; }) };
   }
 
-  return { getBarang, getStokLog, getJualan, laporan, getPengguna };
+  async function getTempahan() {
+    return { success: true, tempahan: (await gv("KP_Tempahan")).filter((x) => s(x.NO)).reverse().map((x) => { let it = []; try { it = JSON.parse(x.ITEMS); } catch (e) {} return { no: s(x.NO), tarikh: s(x.TARIKH), murid: s(x.MURID), kelasMurid: s(x.KELAS_MURID), kumpulan: s(x.KUMPULAN), tingkatan: n(x.TINGKATAN), items: it, jumlah: n(x.JUMLAH), status: s(x.STATUS), oleh: s(x.OLEH), noResit: s(x.NO_RESIT), catatan: s(x.CATATAN) }; }) };
+  }
+
+  return { getTempahan, getBarang, getStokLog, getJualan, laporan, getPengguna };
 })();

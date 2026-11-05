@@ -75,6 +75,8 @@ const KP = {
   nav: [
     ["utama", "Utama", "M3 3h7v9H3z M14 3h7v5h-7z M14 12h7v9h-7z M3 16h7v5H3z", () => true],
     ["jualan", "Jualan (POS)", "M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6 M10 21h.01 M18 21h.01", (u) => u.jualan],
+    // halaman "Tempahan" (cipta bill QR) disimpan untuk kemudian: akan dibina bersama page murid
+    // ["tempahan", "Tempahan", "M9 3h6l1 2h3v16H5V5h3z M9 12h6 M9 16h4", (u) => u.jualan],
     ["sejarah", "Sejarah Jualan", "M6 3h12v18l-3-2-3 2-3-2-3 2z M9 8h6 M9 12h6", (u) => u.jualan || u.laporan],
     ["barangan", "Senarai Barangan", "M21 8 12 3 3 8v8l9 5 9-5z M3 8l9 5 9-5 M12 13v8", (u) => u.admin],
     ["inventori", "Inventori & Akses", "M4 5h16v14H4z M8 12l3 3 5-6", (u) => u.inventori],
@@ -93,15 +95,16 @@ const KP = {
     const pg = KP.pages[key], first = KP.cur !== key || !KP.$("#pg");
     KP.cur = key;
     if (first) {
-      root.innerHTML = `<div class="app"><aside class="side" id="side"><div class="brand"><div class="logo">K</div><div><b>Koperasi SMA (JAIM) Al-Asyraf</b><small>Sistem Pengurusan Koperasi</small></div></div>
+      root.innerHTML = `<div class="app"><div class="backdrop" id="bd" data-a="menu" hidden></div><aside class="side" id="side"><div class="brand"><div class="logo">K</div><div><b>Koperasi SMA (JAIM) Al-Asyraf</b><small>Sistem Pengurusan Koperasi</small></div></div>
         ${ok.map((n) => `<a class="nav ${n[0] === key ? "on" : ""}" href="#/${n[0]}" data-a="navgo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${n[2]}"/></svg>${n[1]}</a>`).join("")}
         <div class="who"><b>${KP.esc(u.nama)}</b><small>${u.admin ? "Admin App" : "Guru Koop"}</small><button class="btn line sm" data-a="pin">Tukar PIN</button><button class="btn line sm" data-a="keluar">Log keluar</button></div></aside>
-        <div class="main"><div class="top"><div style="display:flex;align-items:center;gap:10px"><button class="btn line sm menu" data-a="menu" aria-label="Menu">☰</button><h1 id="ttl"></h1></div><span class="pill p-info">${u.admin ? "Admin App" : "Guru Koop"}</span></div><div class="page" id="pg"></div></div></div>`;
+        <div class="main"><div class="top"><div style="display:flex;align-items:center;gap:10px"><button class="btn line sm menu" data-a="menu" aria-label="Buka / tutup menu" title="Menu">☰ Menu</button><h1 id="ttl"></h1></div><span class="pill p-info">${u.admin ? "Admin App" : "Guru Koop"}</span></div><div class="page" id="pg"></div></div></div>`;
     } else {
       document.querySelectorAll(".nav").forEach((a, i) => a.classList.toggle("on", ok[i] && ok[i][0] === key));
     }
     KP.$("#ttl").textContent = ok.find((n) => n[0] === key)[1];
-    KP.$("#side").classList.remove("open");
+    KP.side(false);
+    if (key !== "jualan" && KP.scan) KP.scan.stop();
     const pgEl = KP.$("#pg");
     if (reload && pg.load) {
       if (pg._ok) {
@@ -121,6 +124,7 @@ const KP = {
     pgEl.innerHTML = pg.view();
     if (pg.after) pg.after();
   },
+  side(open) { const sd = KP.$("#side"), bd = KP.$("#bd"); if (!sd) return; const o = open === undefined ? !sd.classList.contains("open") : open; sd.classList.toggle("open", o); if (bd) bd.hidden = !o; },
   rerender() { const pg = KP.pages[KP.cur], el = KP.$("#pg"); if (pg && el) { const y = window.scrollY; el.innerHTML = pg.view(); if (pg.after) pg.after(); window.scrollTo(0, y); } },
 
   loginView() {
@@ -140,8 +144,8 @@ const KP = {
   }
 };
 
-KP.act.navgo = () => {};
-KP.act.menu = () => KP.$("#side").classList.toggle("open");
+KP.act.navgo = () => KP.side(false);
+KP.act.menu = () => KP.side();
 KP.act.tutup = () => KP.closeModal();
 KP.act.keluar = () => KP.logout(false);
 KP.act.muat = () => KP.draw(true);

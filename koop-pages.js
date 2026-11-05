@@ -43,9 +43,9 @@
   const U = { rng: "7 hari", lap: null };
   KP.pages.utama = {
     async load() {
-      await loadBarang(false);
-      U.lap = null;
-      if (KP.S.user.laporan) { const [a, b] = range(U.rng); U.lap = await KP.call("laporan", { dari: a, hingga: b }); }
+      U.lap = null; const [a, b] = range(U.rng);
+      const [, l] = await Promise.all([loadBarang(false), KP.S.user.laporan ? KP.call("laporan", { dari: a, hingga: b }) : null]);
+      U.lap = l;
     },
     view() {
       const u = KP.S.user, low = D.barang.filter((b) => b.stok <= b.min), hab = D.barang.filter((b) => b.stok <= 0), L = U.lap;
@@ -287,7 +287,7 @@
   /* ================= STOK ================= */
   const K = { jenis: "Semua", log: [] };
   KP.pages.stok = {
-    async load() { await loadBarang(false); const j = await KP.call("getStokLog", { jenis: K.jenis, had: 150 }); if (!j) throw new Error("log"); K.log = j.log; },
+    async load() { const [, j] = await Promise.all([loadBarang(false), KP.call("getStokLog", { jenis: K.jenis, had: 150 })]); if (!j) throw new Error("log"); K.log = j.log; },
     view() {
       const low = D.barang.filter((b) => b.stok > 0 && b.stok <= b.min), hab = D.barang.filter((b) => b.stok <= 0), nilai = D.barang.reduce((s, b) => s + b.stok * (b.kos || 0), 0);
       const opt = D.barang.map((b) => `<option value="${esc(b.kod)}">${esc(b.kod)} · ${esc(b.nama)} (baki ${b.stok})</option>`).join("");
@@ -334,7 +334,6 @@
       const [a, b] = await Promise.all([KP.call("getPengguna"), KP.call("senaraiGuru")]);
       if (!a) throw new Error("pengguna");
       T.pgn = a.pengguna; T.guru = b ? b.guru : []; T.nota = b && b.nota;
-      const t = await KP.api("me"); if (t.success) KP.S.tetapan = t.tetapan;
     },
     view() {
       const tabs = ["Guru Koop", "Kategori", "Jualan & Resit", "Sambungan"];

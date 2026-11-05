@@ -40,12 +40,15 @@ const KP = {
     return j;
   },
   // panggil + papar ralat; pulang null jika gagal
+  // bacaan = terus daripada Google Sheet (KP.data, laju); penulisan = Apps Script
   async call(action, data) {
+    const baca = !!(KP.data && KP.data[action]);
     try {
-      const j = await KP.api(action, data);
+      const j = baca ? await KP.data[action](data || {}) : await KP.api(action, data);
       if (!j.success) { KP.toast(j.message || "Gagal.", true); return null; }
+      if (!baca && !/^(me|senaraiGuru|senaraiMurid|login)$/.test(action)) await new Promise((r) => setTimeout(r, 900)); // beri masa Sheet tersegerak sebelum dibaca semula
       return j;
-    } catch (e) { KP.toast("Tiada sambungan ke pelayan.", true); return null; }
+    } catch (e) { KP.toast(baca ? String(e.message || "Gagal membaca Sheet.") : "Tiada sambungan ke pelayan.", true); return null; }
   },
 
   /* ---------- sesi ---------- */
@@ -63,7 +66,7 @@ const KP = {
     KP.draw(true);
   },
   logout(soft) {
-    KP.S.token = ""; KP.S.user = null; KP.store.del("kp_token");
+    KP.S.token = ""; KP.S.user = null; KP.store.del("kp_token"); Object.keys(KP.pages).forEach((k) => { KP.pages[k]._ok = false; });
     if (soft) KP.toast("Sesi tamat. Sila log masuk semula.", true);
     KP.draw(true);
   },
@@ -100,7 +103,20 @@ const KP = {
     KP.$("#ttl").textContent = ok.find((n) => n[0] === key)[1];
     KP.$("#side").classList.remove("open");
     const pgEl = KP.$("#pg");
-    if (reload && pg.load) { pgEl.innerHTML = `<div class="load">Memuatkan…</div>`; try { await pg.load(); } catch (e) { pgEl.innerHTML = `<div class="empty">Gagal memuat data. <button class="btn line sm" data-a="muat">Cuba lagi</button></div>`; return; } }
+    if (reload && pg.load) {
+      if (pg._ok) {
+        // data lama dipaparkan serta-merta; data baharu dimuat di latar belakang
+        pgEl.innerHTML = pg.view(); if (pg.after) pg.after();
+        pg.load().then(() => {
+          const ae = document.activeElement;
+          if (KP.cur !== key || KP.$("#modal").innerHTML || (ae && /INPUT|SELECT|TEXTAREA/.test(ae.tagName) && pgEl.contains(ae))) return;
+          KP.rerender();
+        }).catch(() => {});
+        return;
+      }
+      pgEl.innerHTML = `<div class="load">Memuatkan…</div>`;
+      try { await pg.load(); pg._ok = true; } catch (e) { pgEl.innerHTML = `<div class="empty">Gagal memuat data. <button class="btn line sm" data-a="muat">Cuba lagi</button></div>`; return; }
+    }
     if (KP.cur !== key) return;
     pgEl.innerHTML = pg.view();
     if (pg.after) pg.after();

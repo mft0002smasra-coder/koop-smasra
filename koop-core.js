@@ -1,6 +1,8 @@
 /* Koperasi SMA (JAIM) Al-Asyraf — teras: API, sesi, shell, router. Kod ini BERASINGAN daripada app-smasra. */
 const KP_API = "https://script.google.com/macros/s/AKfycbwyLzwfPFsazYkoGbnLQfI8G36LvngSxnEqVb6DSnieDN7kXLDhPmSAAz-eq4K1_oqU/exec";
 
+const KP_LOGO = "https://lh3.googleusercontent.com/d/1JFlMpX8nCN4ZKW9SRiNdtFT-UC8D3nlN"; // logo sekolah (sama seperti app-smasra)
+
 const KP = {
   S: { token: "", user: null, tetapan: { kategori: [], resit: {} } },
   pages: {}, act: {}, inp: {}, cur: "", mem: {},
@@ -13,6 +15,7 @@ const KP = {
   },
 
   /* ---------- utiliti ---------- */
+  logo() { return `<span class="logo logoimg"><img src="${KP_LOGO}" alt="Logo sekolah" referrerpolicy="no-referrer" onerror="this.parentNode.textContent='K'"></span>`; },
   esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); },
   rm(n) { return "RM " + (Math.round((+n || 0) * 100) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
   rm0(n) { return "RM " + Math.round(+n || 0).toLocaleString("en-US"); },
@@ -95,7 +98,7 @@ const KP = {
     const pg = KP.pages[key], first = KP.cur !== key || !KP.$("#pg");
     KP.cur = key;
     if (first) {
-      root.innerHTML = `<div class="app"><div class="backdrop" id="bd" data-a="menu" hidden></div><aside class="side" id="side"><div class="brand"><div class="logo">K</div><div><b>Koperasi SMA (JAIM) Al-Asyraf</b><small>Sistem Pengurusan Koperasi</small></div></div>
+      root.innerHTML = `<div class="app"><div class="backdrop" id="bd" data-a="menu" hidden></div><aside class="side" id="side"><div class="brand">${KP.logo()}<div><b>Koperasi SMA (JAIM) Al-Asyraf</b><small>Sistem Pengurusan Koperasi</small></div></div>
         ${ok.map((n) => `<a class="nav ${n[0] === key ? "on" : ""}" href="#/${n[0]}" data-a="navgo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${n[2]}"/></svg>${n[1]}</a>`).join("")}
         <div class="who"><b>${KP.esc(u.nama)}</b><small>${u.admin ? "Admin App" : "Guru Koop"}</small><button class="btn line sm" data-a="pin">Tukar PIN</button><button class="btn line sm" data-a="keluar">Log keluar</button></div></aside>
         <div class="main"><div class="top"><div style="display:flex;align-items:center;gap:10px"><button class="btn line sm menu" data-a="menu" aria-label="Buka / tutup menu" title="Menu">☰ Menu</button><h1 id="ttl"></h1></div><span class="pill p-info">${u.admin ? "Admin App" : "Guru Koop"}</span></div><div class="page" id="pg"></div></div></div>`;
@@ -128,7 +131,7 @@ const KP = {
   rerender() { const pg = KP.pages[KP.cur], el = KP.$("#pg"); if (pg && el) { const y = window.scrollY; el.innerHTML = pg.view(); if (pg.after) pg.after(); window.scrollTo(0, y); } },
 
   loginView() {
-    KP.$("#root").innerHTML = `<div class="login"><div class="card"><div style="display:flex;gap:12px;align-items:center"><div class="logo">K</div><div><b class="hd" style="color:var(--pri-d)">Koperasi SMA (JAIM) Al-Asyraf</b><div class="muted small">Log masuk pengguna koperasi</div></div></div>
+    KP.$("#root").innerHTML = `<div class="login"><div class="card"><div style="display:flex;gap:12px;align-items:center">${KP.logo()}<div><b class="hd" style="color:var(--pri-d)">Koperasi SMA (JAIM) Al-Asyraf</b><div class="muted small">Log masuk pengguna koperasi</div></div></div>
       <label class="fld"><span class="lbl">Emel</span><input id="lg-e" type="email" autocomplete="username" data-enter="login" placeholder="emel@moe-dl.edu.my"></label>
       <label class="fld"><span class="lbl">PIN</span><input id="lg-p" type="password" inputmode="numeric" autocomplete="current-password" data-enter="login" placeholder="PIN"></label>
       <button class="btn cta block" data-a="login" id="lg-b">Log masuk</button>

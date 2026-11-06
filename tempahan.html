@@ -25,6 +25,16 @@
 .bar-fix>div{max-width:780px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
 .err{background:#FFE4E6;color:#9F1239;border-radius:12px;padding:10px 14px;font-size:13.5px}
+.home{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.hcard{all:unset;box-sizing:border-box;cursor:pointer;background:#fff;border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:8px;box-shadow:0 6px 20px rgba(76,29,149,.12);border:1px solid var(--ln2);transition:transform .15s}
+.hcard:hover,.hcard:focus-visible{transform:translateY(-3px);outline:3px solid #C4B5FD}
+.hcard b{font:700 18px 'Rubik',sans-serif}.hi{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px}
+.hgo{font-style:normal;font-weight:700;color:var(--pri-d);margin-top:auto}
+.ok-box{background:#ECFDF5;border:1px solid #6EE7B7;color:#065F46}
+.drop{display:block;border:2px dashed #C4B5FD;border-radius:16px;padding:22px;text-align:center;cursor:pointer;background:#FAF5FF}
+.drop input{position:absolute;opacity:0;width:1px;height:1px}
+.drop:focus-within{outline:3px solid #C4B5FD}
+@media(max-width:560px){.home{grid-template-columns:1fr}}
 @media(max-width:520px){.irow{grid-template-columns:30px 1fr;}.irow .qty{grid-column:2}}
 </style>
 </head>
@@ -32,6 +42,7 @@
 <div class="wrap" id="app"><div class="load">Memuatkan borang…</div></div>
 <div id="print" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="koop-borang.js"></script>
 </body>
 </html>

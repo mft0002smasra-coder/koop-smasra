@@ -139,7 +139,7 @@
     const back = (t) => `<div class="crumb"><button class="btn line sm" data-a="j-back">‹ Kembali</button><b class="hd" style="color:var(--pri-d)">${t}</b></div>`;
     if (!J.mode) return `<div class="bigs">${big("j-mode", "Jualan Terus", "Imbas barcode atau pilih barang terus daripada kategori.", "terus", "cta").replace('data-a="j-mode"', 'data-a="j-mode" data-k="terus"')}${big("j-mode", "Jualan Tempahan", "Imbas QR / barcode pada bill tempahan, senarai barang terus masuk troli.", "tempahan").replace('data-a="j-mode"', 'data-a="j-mode" data-k="tempahan"')}</div>`;
     if (J.mode === "tempahan") {
-      if (J.tmp) return `${back("Jualan Tempahan")}<div class="card pad" style="display:flex;flex-direction:column;gap:8px"><div class="sp"><h2>Tempahan ${esc(J.tmp.no)}</h2>${pill("Dimuatkan ke troli", "ok")}</div><div class="muted small">${esc(J.tmp.tarikh.slice(0, 16))} · oleh ${esc(J.tmp.oleh)}${J.tmp.catatan ? " · " + esc(J.tmp.catatan) : ""}</div><div>Semak troli di sebelah, kemudian bayar. Barang yang habis stok tidak dimasukkan.</div><div><button class="btn line sm" data-a="j-tmp-lain">Imbas tempahan lain</button></div></div>`;
+      if (J.tmp) return `${back("Jualan Tempahan")}<div class="card pad" style="display:flex;flex-direction:column;gap:8px"><div class="sp"><h2>Tempahan ${esc(J.tmp.no)}</h2>${pill("Dimuatkan ke troli", "ok")}</div><div class="muted small">${esc(J.tmp.tarikh.slice(0, 16))} · oleh ${esc(J.tmp.oleh)}${J.tmp.catatan ? " · " + esc(J.tmp.catatan) : ""}</div><div class="sp"><span>Bayaran: ${pill(J.tmp.bayar, J.tmp.bayar === "Disahkan" ? "ok" : J.tmp.bayar === "Belum" ? "gr" : "warn")}</span><span style="display:flex;gap:8px">${J.tmp.adaBukti ? `<button class="btn line sm" data-a="j-bukti">Lihat bukti</button>` : ""}${J.tmp.adaBukti && J.tmp.bayar !== "Disahkan" ? `<button class="btn sm" data-a="j-sah">Sahkan bayaran</button>` : ""}</span></div><div>Semak troli di sebelah, kemudian bayar. Barang yang habis stok tidak dimasukkan.</div><div><button class="btn line sm" data-a="j-tmp-lain">Imbas tempahan lain</button></div></div>`;
       return `${back("Jualan Tempahan")}${scanCard("Imbas bill tempahan", "Atau taip no. tempahan, cth. T-00012")}`;
     }
     if (!J.sub) return `${back("Jualan Terus")}<div class="bigs">${big("j-sub", "Scan barcode", "Imbas barcode barang — terus masuk troli.", "scan", "cta").replace('data-a="j-sub"', 'data-a="j-sub" data-k="scan"')}${big("j-sub", "Pilih barang", "Pilih kategori, kemudian pilih barang.", "pilih").replace('data-a="j-sub"', 'data-a="j-sub" data-k="pilih"')}</div>`;
@@ -191,6 +191,13 @@
   KP.act["j-sub"] = (t) => { J.sub = t.dataset.k; J.cat = ""; KP.rerender(); };
   KP.act["j-cat"] = (t) => { J.cat = t.dataset.k; KP.rerender(); };
   KP.act["j-back"] = () => { if (J.mode === "terus" && J.sub === "pilih" && J.cat) J.cat = ""; else if (J.mode === "terus" && J.sub) J.sub = ""; else { const had = Object.keys(J.cart).length; if (had && !confirm("Troli akan dikosongkan. Teruskan?")) return; jReset(); } KP.rerender(); };
+  KP.act["j-bukti"] = async () => {
+    const j = await KP.call("lihatBukti", { no: J.tmp.no }); if (!j) return;
+    const bin = atob(j.data), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    const url = URL.createObjectURL(new Blob([u8], { type: j.mime }));
+    KP.modal(`<h2 style="margin-bottom:10px">Bukti bayaran ${esc(J.tmp.no)}</h2>${/pdf/.test(j.mime) ? `<iframe src="${url}" style="width:100%;height:60vh;border:0"></iframe>` : `<img src="${url}" alt="Bukti bayaran" style="max-width:100%;border-radius:8px">`}<div class="sp" style="margin-top:12px"><a class="btn line" href="${url}" download="${esc(j.nama)}">Muat turun</a><button class="btn" data-a="tutup">Tutup</button></div>`);
+  };
+  KP.act["j-sah"] = async () => { const j = await KP.call("sahkanBayaran", { no: J.tmp.no }); if (!j) return; J.tmp.bayar = "Disahkan"; KP.toast("Bayaran disahkan."); KP.rerender(); };
   KP.act["j-tmp-lain"] = () => { J.tmp = null; J.cart = {}; KP.rerender(); };
   KP.act["j-codego"] = () => { const i = $("#j-code"); if (!i) return; const v = i.value; i.value = ""; J.last = ""; jOnCode(v); i.focus(); };
   KP.act["j-kae"] = (t) => { J.kaedah = t.dataset.k; jCartRefresh(); };

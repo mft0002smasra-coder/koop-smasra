@@ -28,8 +28,8 @@ KP.data = (function () {
     const o = {}; (await gv("KP_Tetapan")).forEach((r) => { try { o[r.KUNCI] = JSON.parse(r.NILAI); } catch (e) {} });
     return o;
   }
-  const bOut = (x) => ({ barcode: s(x.BARCODE).trim(), kod: s(x.KOD), nama: s(x.NAMA), kategori: s(x.KATEGORI), unit: s(x.UNIT), kos: n(x.KOS), jual: n(x.JUAL), stok: n(x.STOK), min: n(x.MIN), lr: f1(x.LR), as: f1(x.AS), t: [1, 2, 3, 4, 5, 6].map((i) => f1(x["T" + i])), w: [1, 2, 3, 4, 5, 6].map((i) => f1(x["W" + i])), aktif: f1(x.AKTIF) });
-  const isSet = (b) => ((b.lr || b.as) && b.t.every((v) => v) ? 1 : 0);
+  const bOut = (x) => ({ barcode: s(x.BARCODE).trim(), kod: s(x.KOD), nama: s(x.NAMA), kategori: s(x.KATEGORI), unit: s(x.UNIT), kos: n(x.KOS), jual: n(x.JUAL), stok: n(x.STOK), min: n(x.MIN), lr: f1(x.LR), as: f1(x.AS), t: [1, 2, 3, 4, 5, 6].map((i) => f1(x["T" + i])), w: [1, 2, 3, 4, 5, 6].map((i) => f1(x["W" + i])), q: [1, 2, 3, 4, 5, 6].map((i) => Math.max(1, Math.floor(n(x["Q" + i])))), jantina: /^[LP]$/i.test(s(x.JANTINA).trim()) ? s(x.JANTINA).trim().toUpperCase() : "", varian: s(x.VARIAN), saiz: s(x.SAIZ), untukBaru: f1(x.UNTUKBARU), aktif: f1(x.AKTIF) });
+  const isSet = (b) => ((b.lr || b.as) && b.t.some((v) => v) ? 1 : 0);
 
   async function allBarang() { return (await gv("KP_Barang")).filter((x) => s(x.KOD)).map(bOut).filter((b) => b.aktif).map((b) => Object.assign(b, { set: isSet(b) })); }
 

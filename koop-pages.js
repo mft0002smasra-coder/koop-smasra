@@ -32,7 +32,7 @@
   function resitHtml(r) {
     const nm = (KP.S.tetapan.resit || {}).nama || "Koperasi";
     return `<div class="resit"><div style="text-align:center"><b>${esc(nm)}</b><br>${esc(r.no)}<br>${esc(r.tarikh)}</div><hr>
-      <div>Juruwang: ${esc(r.juruwang)}</div>${r.murid ? `<div>Murid: ${esc(r.murid)}${r.kelasMurid ? " (" + esc(r.kelasMurid) + ")" : ""}</div>` : ""}<div>Pembeli: ${esc(r.kumpulan)} · T${r.tingkatan}</div><hr>
+      <div>Juruwang: ${esc(r.juruwang)}</div>${r.murid ? `<div>Murid: ${esc(r.murid)}${r.kelasMurid ? " (" + esc(r.kelasMurid) + ")" : ""}</div>` : ""}<div>Pembeli: ${esc(r.kumpulan)}${r.tingkatan ? " · T" + r.tingkatan : ""}</div><hr>
       ${(r.items || []).map((i) => `<div class="l"><span>${esc(i.nama)}<br>&nbsp;${i.qty} x ${Number(i.harga).toFixed(2)}</span><span>${Number(i.jumlah != null ? i.jumlah : i.harga * i.qty).toFixed(2)}</span></div>`).join("")}<hr>
       <div class="l"><b>JUMLAH</b><b>${rm(r.jumlah)}</b></div><div class="l"><span>${esc(r.kaedah)}</span><span>${rm(r.tunai)}</span></div><div class="l"><span>Baki</span><span>${rm(r.baki)}</span></div>
       ${r.status === "Batal" ? `<hr><div style="text-align:center"><b>*** DIBATALKAN ***</b></div>` : ""}<hr><div style="text-align:center">Terima kasih</div></div>`;
@@ -96,12 +96,15 @@
     pilih: `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`,
     qr: `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v3M14 20h3M20 20h1"/></svg>`
   };
+  const ACC = [["#7C3AED", "#DB2777"], ["#0891B2", "#2563EB"], ["#EA580C", "#DB2777"], ["#059669", "#0891B2"], ["#C026D3", "#7C3AED"], ["#D97706", "#DC2626"]];
+  const acc = (s) => { let h = 0; String(s).split("").forEach((c) => { h = (h * 31 + c.charCodeAt(0)) >>> 0; }); const a = ACC[h % ACC.length]; return `--a:${a[0]};--b:${a[1]}`; };
+  const ini = (s) => esc(String(s).replace(/[^A-Za-z0-9 ]/g, "").split(" ").filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "•");
   const big = (act, title, sub, ic, cls) => `<button class="big ${cls || ""}" data-a="${act}"><span class="ic">${ICON[ic]}</span><b>${title}</b><span class="s">${sub}</span></button>`;
   const findCode = (code) => { code = String(code || "").trim(); const lc = code.toLowerCase(); return D.barang.find((b) => (b.barcode && b.barcode === code) || b.kod.toLowerCase() === lc); };
 
   /* ================= JUALAN (POS) ================= */
   const J = { mode: "", sub: "", cat: "", grp: "Luar asrama", ting: 1, cart: {}, kaedah: "Tunai", tunai: "", murid: null, tmp: null, recent: [], last: "", lastAt: 0 };
-  const jOk = (b) => b.set && (J.grp === "Asrama" ? b.as : b.lr) && b.t[J.ting - 1];
+  const jOk = (b) => b.set && (J.mode === "tempahan" ? (J.grp === "Asrama" ? b.as : b.lr) && b.t[J.ting - 1] : true); // Jualan Terus: semua barang SET; Tempahan: ikut kumpulan & tingkatan pada bill
   const jTotal = () => D.barang.reduce((s, b) => s + (J.cart[b.kod] ? b.jual * J.cart[b.kod] : 0), 0);
   function jPrune() { Object.keys(J.cart).forEach((k) => { const b = D.barang.find((x) => x.kod === k); if (!b || !jOk(b)) delete J.cart[k]; }); }
   function jReset() { J.mode = ""; J.sub = ""; J.cat = ""; J.cart = {}; J.tunai = ""; J.murid = null; J.tmp = null; J.recent = []; KP.scan.stop(); }
@@ -112,7 +115,7 @@
   }
   function jCartHtml() {
     const tot = jTotal(), lines = D.barang.filter((b) => J.cart[b.kod]);
-    return `<div class="sp"><h2>Troli</h2><span class="muted small">${J.grp} · T${J.ting}</span></div>
+    return `<div class="sp"><h2>Troli</h2><span class="muted small">${J.mode === "tempahan" ? J.grp + " · T" + J.ting : "Jualan terus"}</span></div>
       ${lines.map((b) => `<div class="sp" style="border-bottom:1px solid var(--ln2);padding-bottom:6px"><div style="min-width:0"><b style="font-size:13.5px">${esc(b.nama)}</b><div class="muted small">${rm(b.jual)} × ${J.cart[b.kod]} = <b>${rm(b.jual * J.cart[b.kod])}</b></div></div><div class="qty"><button data-a="j-min" data-k="${esc(b.kod)}" aria-label="Kurang">−</button><b class="num">${J.cart[b.kod]}</b><button data-a="j-add" data-k="${esc(b.kod)}" aria-label="Tambah">+</button></div></div>`).join("") || `<div class="empty">Troli kosong.</div>`}
       <div class="sp"><span class="lbl">Jumlah</span><b class="hd" style="font-size:24px;color:var(--pri-d)">${rm(tot)}</b></div>
       <div class="chips">${["Tunai", "QR DuitNow"].map((k) => `<button class="ch ${k === J.kaedah ? "on" : ""}" data-a="j-kae" data-k="${k}">${k}</button>`).join("")}</div>
@@ -124,8 +127,7 @@
   function jCartRefresh() { const c = $("#j-cart"); if (c) { c.innerHTML = jCartHtml(); jBayarState(); } document.querySelectorAll("[data-kb]").forEach((e) => { const q = J.cart[e.dataset.kb] || 0; e.textContent = q ? "Dalam troli: " + q : ""; }); }
   function jBuyerHtml() {
     if (J.mode === "tempahan") return `<div class="sp"><span class="lbl">Pembeli (daripada tempahan)</span>${pill(J.grp + " · T" + J.ting, "info")}</div>${J.murid ? `<b>${esc(J.murid.nama)}</b> <span class="muted small">${esc(J.murid.kelas)}</span>` : `<span class="muted small">Tanpa nama murid</span>`}`;
-    return `<div style="position:relative"><label class="fld"><span class="lbl">Cari murid (pilihan) — kumpulan &amp; tingkatan diisi automatik</span><input id="j-mq" data-i="mq" autocomplete="off" placeholder="Taip nama atau No. KP murid" value="${esc(J.murid ? J.murid.nama + " (" + J.murid.kelas + ")" : "")}"></label><div class="dd" id="j-dd" hidden></div></div>
-      <div class="sp"><div class="chips">${["Luar asrama", "Asrama"].map((k) => `<button class="ch ${k === J.grp ? "on" : ""}" data-a="j-grp" data-k="${k}">${k}</button>`).join("")}</div><div class="chips">${[1, 2, 3, 4, 5, 6].map((n) => `<button class="ch ${n === J.ting ? "on" : ""}" data-a="j-ting" data-k="${n}">T${n}</button>`).join("")}</div></div>`;
+    return "";
   }
   function scanCard(title, hint) {
     return `<div class="card pad" style="display:flex;flex-direction:column;gap:10px"><div class="sp"><h2>${title}</h2><span class="muted small" id="j-scanmsg">Membuka kamera…</span></div><div id="j-reader"></div>
@@ -145,15 +147,15 @@
     const ok = D.barang.filter(jOk);
     if (!J.cat) {
       const cats = D.kat.concat(ok.map((b) => b.kategori).filter((k) => !D.kat.includes(k))).filter((k, i, a) => a.indexOf(k) === i);
-      return `${back("Jualan Terus · Pilih kategori")}<div class="bigs">${cats.map((k) => { const n = ok.filter((b) => b.kategori === k).length; return `<button class="big" data-a="j-cat" data-k="${esc(k)}" ${n ? "" : "disabled"}><b>${esc(k)}</b><span class="s">${n} barang untuk ${J.grp} · T${J.ting}</span></button>`; }).join("")}</div>`;
+      return `${back("Jualan Terus · Pilih kategori")}<div class="bigs">${cats.map((k) => { const n = ok.filter((b) => b.kategori === k).length; return `<button class="big" style="${acc(k)}" data-a="j-cat" data-k="${esc(k)}" ${n ? "" : "disabled"}><span class="ic">${ini(k)}</span><b>${esc(k)}</b><span class="s">${n} barang</span></button>`; }).join("")}</div>`;
     }
     const L = ok.filter((b) => b.kategori === J.cat);
-    return `${back("Jualan Terus · " + esc(J.cat))}<div class="tiles">${L.map((b) => `<button class="tile" data-a="j-add" data-k="${esc(b.kod)}" ${b.stok <= 0 ? "disabled" : ""}><b>${esc(b.nama)}</b><span class="pr">${rm(b.jual)}</span><span>${stokPill(b)}</span><span class="small tb" style="color:var(--pri)" data-kb="${esc(b.kod)}">${J.cart[b.kod] ? "Dalam troli: " + J.cart[b.kod] : ""}</span></button>`).join("") || `<div class="empty card" style="grid-column:1/-1">Tiada barang untuk pilihan ini.</div>`}</div>`;
+    return `${back("Jualan Terus · " + esc(J.cat))}<div class="tiles">${L.map((b) => `<button class="tile" style="${acc(b.kategori + b.nama)}" data-a="j-add" data-k="${esc(b.kod)}" ${b.stok <= 0 ? "disabled" : ""}><span class="pv">${ini(b.nama)}</span><b>${esc(b.nama)}</b><span class="pr">${rm(b.jual)}</span><span>${stokPill(b)}</span><span class="small tb" style="color:var(--pri)" data-kb="${esc(b.kod)}">${J.cart[b.kod] ? "Dalam troli: " + J.cart[b.kod] : ""}</span></button>`).join("") || `<div class="empty card" style="grid-column:1/-1">Tiada barang untuk pilihan ini.</div>`}</div>`;
   }
   KP.pages.jualan = {
-    async load() { await loadBarang(true); loadMurid(); },
+    async load() { await loadBarang(true); },
     view() {
-      const side = J.mode ? `<div class="cart" style="display:flex;flex-direction:column;gap:12px"><div class="card pad" style="display:flex;flex-direction:column;gap:10px">${jBuyerHtml()}</div><div class="card pad" id="j-cart" style="display:flex;flex-direction:column;gap:10px">${jCartHtml()}</div></div>` : "";
+      const side = J.mode ? `<div class="cart" style="display:flex;flex-direction:column;gap:12px">${J.mode === "tempahan" ? `<div class="card pad" style="display:flex;flex-direction:column;gap:10px">${jBuyerHtml()}</div>` : ""}<div class="card pad" id="j-cart" style="display:flex;flex-direction:column;gap:10px">${jCartHtml()}</div></div>` : "";
       return `<div class="pos"><div class="prods" style="display:flex;flex-direction:column;gap:12px">${jLeft()}</div>${side}</div>`;
     },
     after() {
@@ -170,7 +172,7 @@
     if (jAdd(b, true)) { J.recent.unshift(b.nama + " — " + rm(b.jual)); J.recent = J.recent.slice(0, 5); const r = $("#j-recent"); if (r) r.innerHTML = jRecentHtml(); }
   }
   function jAdd(b, scan) {
-    if (!jOk(b)) { KP.beep(false); KP.toast(b.nama + " tidak boleh dijual kepada " + J.grp + " T" + J.ting + ".", true); return false; }
+    if (!jOk(b)) { KP.beep(false); KP.toast(b.nama + " belum ditetapkan SET di Inventori & Akses.", true); return false; }
     if ((J.cart[b.kod] || 0) >= b.stok) { KP.beep(false); KP.toast("Stok " + b.nama + " tidak mencukupi.", true); return false; }
     J.cart[b.kod] = (J.cart[b.kod] || 0) + 1; if (scan) KP.beep(true); jCartRefresh(); return true;
   }
@@ -191,20 +193,16 @@
   KP.act["j-back"] = () => { if (J.mode === "terus" && J.sub === "pilih" && J.cat) J.cat = ""; else if (J.mode === "terus" && J.sub) J.sub = ""; else { const had = Object.keys(J.cart).length; if (had && !confirm("Troli akan dikosongkan. Teruskan?")) return; jReset(); } KP.rerender(); };
   KP.act["j-tmp-lain"] = () => { J.tmp = null; J.cart = {}; KP.rerender(); };
   KP.act["j-codego"] = () => { const i = $("#j-code"); if (!i) return; const v = i.value; i.value = ""; J.last = ""; jOnCode(v); i.focus(); };
-  KP.act["j-grp"] = (t) => { J.grp = t.dataset.k; J.murid = null; jPrune(); KP.rerender(); };
-  KP.act["j-ting"] = (t) => { J.ting = +t.dataset.k; J.murid = null; jPrune(); KP.rerender(); };
   KP.act["j-kae"] = (t) => { J.kaedah = t.dataset.k; jCartRefresh(); };
   KP.act["j-add"] = (t) => { const b = D.barang.find((x) => x.kod === t.dataset.k); if (b) jAdd(b, false); };
   KP.act["j-min"] = (t) => { const k = t.dataset.k; if (--J.cart[k] <= 0) delete J.cart[k]; jCartRefresh(); };
   KP.act["j-kosong"] = () => { J.cart = {}; J.tunai = ""; jCartRefresh(); };
   KP.act["j-tn"] = (t) => { J.tunai = String(+t.dataset.k); jCartRefresh(); };
   KP.inp.tunai = (t) => { J.tunai = t.value; jBayarState(); };
-  KP.inp.mq = (t) => { if (J.murid) J.murid = null; muridDd(t.value, "j-dd", "j-mpick"); };
-  KP.act["j-mpick"] = (t) => { const m = KP.mlist[+t.dataset.k]; J.murid = m; J.grp = m.kumpulan; if (m.tingkatan) J.ting = m.tingkatan; jPrune(); KP.rerender(); };
   KP.act["j-bayar"] = async (t) => {
     const items = Object.keys(J.cart).map((k) => ({ kod: k, qty: J.cart[k] }));
     t.disabled = true;
-    const j = await KP.call("jual", { items, kumpulan: J.grp, tingkatan: J.ting, kaedah: J.kaedah, tunai: parseFloat(J.tunai) || 0, tempahan: J.tmp ? J.tmp.no : "", murid: J.murid ? { nama: J.murid.nama, kelas: J.murid.kelas } : null });
+    const j = await KP.call("jual", { items, kumpulan: J.mode === "terus" ? "Terus" : J.grp, tingkatan: J.mode === "terus" ? 0 : J.ting, kaedah: J.kaedah, tunai: parseFloat(J.tunai) || 0, tempahan: J.tmp ? J.tmp.no : "", murid: J.murid ? { nama: J.murid.nama, kelas: J.murid.kelas } : null });
     if (!j) { t.disabled = false; return; }
     const r = j.resit; r.murid = J.murid ? J.murid.nama : ""; r.kelasMurid = J.murid ? J.murid.kelas : "";
     jReset(); KP.lastResit = r;
@@ -279,9 +277,9 @@
     view() {
       const L = H.list.filter((r) => H.grp === "Semua" || r.kumpulan === H.grp), sah = L.filter((r) => r.status !== "Batal"), sel = H.list.find((r) => r.no === H.sel);
       const sum = (f) => sah.filter(f).reduce((s, r) => s + r.jumlah, 0), admin = KP.S.user.admin;
-      return `<div class="card pad"><div class="sp"><div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end"><label class="fld"><span class="lbl">Dari</span><input type="date" data-i="h-dari" value="${H.dari}"></label><label class="fld"><span class="lbl">Hingga</span><input type="date" data-i="h-hingga" value="${H.hingga}"></label></div>${chips(["Semua", "Asrama", "Luar asrama"], H.grp, "h-grp")}</div></div>
+      return `<div class="card pad"><div class="sp"><div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end"><label class="fld"><span class="lbl">Dari</span><input type="date" data-i="h-dari" value="${H.dari}"></label><label class="fld"><span class="lbl">Hingga</span><input type="date" data-i="h-hingga" value="${H.hingga}"></label></div>${chips(["Semua", "Terus", "Asrama", "Luar asrama"], H.grp, "h-grp")}</div></div>
       <div class="row"><div class="card kpi"><div class="lbl">Jumlah jualan</div><div class="v">${rm(sum(() => 1))}</div></div><div class="card kpi"><div class="lbl">Bil. resit</div><div class="v">${sah.length}</div></div><div class="card kpi"><div class="lbl">Tunai</div><div class="v">${rm(sum((r) => r.kaedah === "Tunai"))}</div></div><div class="card kpi"><div class="lbl">QR DuitNow</div><div class="v">${rm(sum((r) => r.kaedah !== "Tunai"))}</div></div></div>
-      <div class="pos"><div class="card prods" style="padding:6px 0"><div class="tbl"><table><thead><tr><th>No.</th><th>Masa</th><th>Murid / pembeli</th><th>Kaedah</th><th class="r">Jumlah</th><th>Status</th></tr></thead><tbody>${L.map((r) => `<tr class="${r.no === H.sel ? "sel" : ""}" data-a="h-pilih" data-k="${esc(r.no)}" style="cursor:pointer"><td><b>${esc(r.no)}</b></td><td class="muted">${esc(r.tarikh.slice(5, 16))}</td><td>${esc(r.murid || r.kumpulan + " · T" + r.tingkatan)}</td><td>${esc(r.kaedah)}</td><td class="r num">${rm(r.jumlah)}</td><td>${r.status === "Batal" ? pill("Batal", "bad") : pill("Sah", "ok")}</td></tr>`).join("") || `<tr><td colspan="6" class="empty">Tiada resit dalam tempoh ini.</td></tr>`}</tbody></table></div></div>
+      <div class="pos"><div class="card prods" style="padding:6px 0"><div class="tbl"><table><thead><tr><th>No.</th><th>Masa</th><th>Murid / pembeli</th><th>Kaedah</th><th class="r">Jumlah</th><th>Status</th></tr></thead><tbody>${L.map((r) => `<tr class="${r.no === H.sel ? "sel" : ""}" data-a="h-pilih" data-k="${esc(r.no)}" style="cursor:pointer"><td><b>${esc(r.no)}</b></td><td class="muted">${esc(r.tarikh.slice(5, 16))}</td><td>${esc(r.murid || r.kumpulan + (r.tingkatan ? " · T" + r.tingkatan : ""))}</td><td>${esc(r.kaedah)}</td><td class="r num">${rm(r.jumlah)}</td><td>${r.status === "Batal" ? pill("Batal", "bad") : pill("Sah", "ok")}</td></tr>`).join("") || `<tr><td colspan="6" class="empty">Tiada resit dalam tempoh ini.</td></tr>`}</tbody></table></div></div>
       <div class="card pad cart" style="display:flex;flex-direction:column;gap:10px">${sel ? `${resitHtml(sel)}<button class="btn line block" data-a="h-cetak">Cetak semula resit</button>${admin && sel.status !== "Batal" ? `<button class="btn bad block" data-a="h-batal">Batalkan resit (Admin)</button><div class="muted small">Stok dipulangkan dan tindakan direkodkan.</div>` : ""}${sel.status === "Batal" ? `<div class="muted small">Dibatalkan oleh ${esc(sel.dibatalOleh)}: ${esc(sel.sebabBatal)}</div>` : ""}` : `<div class="empty">Pilih resit untuk melihat butiran.</div>`}</div></div>`;
     }
   };

@@ -80,7 +80,7 @@ KP.data = (function () {
   }
 
   async function getTempahan() {
-    return { success: true, tempahan: (await gv("KP_Tempahan")).filter((x) => s(x.NO)).reverse().map((x) => { let it = []; try { it = JSON.parse(x.ITEMS); } catch (e) {} return { no: s(x.NO), tarikh: s(x.TARIKH), murid: s(x.MURID), kelasMurid: s(x.KELAS_MURID), kumpulan: s(x.KUMPULAN), tingkatan: n(x.TINGKATAN), items: it, jumlah: n(x.JUMLAH), status: s(x.STATUS), oleh: s(x.OLEH), noResit: s(x.NO_RESIT), catatan: s(x.CATATAN) }; }) };
+    return { success: true, tempahan: (await gv("KP_Tempahan")).filter((x) => s(x.NO)).reverse().map((x) => { let it = []; try { it = JSON.parse(x.ITEMS); } catch (e) {} return { no: s(x.NO), tarikh: s(x.TARIKH), murid: s(x.MURID), kelasMurid: s(x.KELAS_MURID), kumpulan: s(x.KUMPULAN), tingkatan: n(x.TINGKATAN), items: it, jumlah: n(x.JUMLAH), status: s(x.STATUS), oleh: s(x.OLEH), noResit: s(x.NO_RESIT), catatan: s(x.CATATAN), kp: s(x.KP), baru: f1(x.BARU) }; }) };
   }
 
   return { getTempahan, getBarang, getStokLog, getJualan, laporan, getPengguna };

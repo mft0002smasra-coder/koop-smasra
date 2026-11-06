@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tempahan Barang Koperasi — SM Arab (JAIM) Al-Asyraf</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="https://lh3.googleusercontent.com/d/1JFlMpX8nCN4ZKW9SRiNdtFT-UC8D3nlN">
+<link rel="stylesheet" href="koop.css">
+<style>
+.wrap{max-width:780px;margin:0 auto;padding:14px 14px 120px;display:flex;flex-direction:column;gap:14px}
+.hero{display:flex;align-items:center;gap:14px;padding:16px;background:var(--grad);color:#fff;border-radius:20px;box-shadow:0 8px 24px rgba(124,58,237,.25)}
+.hero .logo{width:56px;height:56px;flex:none}
+.hero h1{margin:0;font:700 19px/1.25 'Rubik',sans-serif}
+.hero p{margin:2px 0 0;font-size:13px;opacity:.95}
+.step{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.step i{flex:none;width:28px;height:28px;border-radius:50%;background:var(--grad);color:#fff;font:700 14px 'Rubik',sans-serif;display:flex;align-items:center;justify-content:center;font-style:normal}
+.irow{display:grid;grid-template-columns:30px 1fr auto;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--ln2)}
+.irow:last-child{border-bottom:0}
+.irow.off{opacity:.55}
+.irow .cb[disabled]{opacity:.7;cursor:not-allowed}
+.kat{font:600 12px 'Rubik',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--pri-d);padding:10px 12px 4px;background:#FAF5FF;border-radius:12px 12px 0 0}
+.bar-fix{position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);border-top:3px solid transparent;border-image:var(--grad) 1;padding:10px 14px;z-index:20}
+.bar-fix>div{max-width:780px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+.err{background:#FFE4E6;color:#9F1239;border-radius:12px;padding:10px 14px;font-size:13.5px}
+@media(max-width:520px){.irow{grid-template-columns:30px 1fr;}.irow .qty{grid-column:2}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="load">Memuatkan borang…</div></div>
+<div id="print" hidden></div>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="koop-borang.js"></script>
+</body>
+</html>

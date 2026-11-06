@@ -63,6 +63,7 @@ button,.btn{font-family:'Rubik',sans-serif;cursor:pointer}
 .cb:hover{border-color:var(--pri)}
 .cb.on{background:var(--pri);border-color:var(--pri)}
 .cb.t.on{background:#0F766E;border-color:#0F766E}
+.cb.w.on{background:#C2410C;border-color:#C2410C}
 .pill{display:inline-block;font:600 11.5px 'Rubik',sans-serif;padding:2px 9px;border-radius:99px;font-style:normal;white-space:nowrap}
 .p-ok{background:#DCFCE7;color:#14532D}.p-warn{background:#FEF3C7;color:#78350F}.p-bad{background:#FFE4E6;color:#9F1239}.p-info{background:var(--pri-l);color:var(--pri-d)}.p-ind{background:#E0E7FF;color:#312E81}.p-gr{background:var(--ln2);color:#475569}
 .fld{display:flex;flex-direction:column;gap:4px;min-width:0}

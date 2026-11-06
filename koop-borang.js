@@ -32,7 +32,7 @@ const KP_LOGO = "https://lh3.googleusercontent.com/d/1JFlMpX8nCN4ZKW9SRiNdtFT-UC
   /* ---------- keadaan ---------- */
   const F = { murid: [], kelasList: [], barang: [], kat: [], resit: {}, mode: "ada", kelas: "", mi: "", grp: "Luar asrama", ting: 1, tingMurid: 1, jtManual: "",
     baru: { nama: "", kp: "" }, sel: {}, size: {}, qty: {}, busy: false, err: "", done: null, ok: false,
-    view: "home", qrPay: "", cash: false, bq: "", bres: null, bbusy: false, berr: "", bmsg: {} };
+    view: "home", qrPay: "", cash: false, bq: "", bres: null, bbusy: false, berr: "", bmsg: {}, rq: "", rres: null, rbusy: false, rerr: "" };
 
   async function load() {
     try {
@@ -86,6 +86,7 @@ const KP_LOGO = "https://lh3.googleusercontent.com/d/1JFlMpX8nCN4ZKW9SRiNdtFT-UC
     const A = $("#app");
     if (F.view === "home") { A.innerHTML = homeView(); return; }
     if (F.view === "bayar") { A.innerHTML = bayarView(); return; }
+    if (F.view === "resit") { A.innerHTML = resitView(); return; }
     if (F.done) { A.innerHTML = billView(); return; }
     let h = `<div class="hero"><span class="logo logoimg"><img src="${KP_LOGO}" alt="Logo sekolah" referrerpolicy="no-referrer" onerror="this.parentNode.textContent='K'"></span><div><h1>Tempahan Barang Koperasi</h1><p>SM Arab (JAIM) Al-Asyraf · Pilih set mengikut tingkatan, semak, kemudian hantar.</p></div><button class="btn line sm" data-a="home" style="background:#fff">← Menu</button></div>`;
     if (!F.ok) { A.innerHTML = h + `<div class="card pad"><div class="err">${esc(F.err || "Memuatkan borang…")}</div><div style="margin-top:10px"><button class="btn" data-a="muat">Cuba lagi</button></div></div>`; return; }
@@ -141,7 +142,8 @@ const KP_LOGO = "https://lh3.googleusercontent.com/d/1JFlMpX8nCN4ZKW9SRiNdtFT-UC
   function homeView() {
     return HERO("Koperasi Sekolah", "SM Arab (JAIM) Al-Asyraf · Sila pilih perkhidmatan.", false) + `<div class="home">
       <button class="hcard" data-a="go" data-k="tempah"><span class="hi" style="background:var(--grad)">🛍️</span><b>Tempahan Barang</b><span class="muted">Pilih set mengikut tingkatan, hantar tempahan dan muat turun invoice (PDF).</span><i class="hgo">Mula tempah →</i></button>
-      <button class="hcard" data-a="go" data-k="bayar"><span class="hi" style="background:var(--grad-cta)">💳</span><b>Pembayaran</b><span class="muted">Muat naik bukti pembayaran menggunakan No. Invoice atau No. Kad Pengenalan murid.</span><i class="hgo">Muat naik bukti →</i></button></div>`;
+      <button class="hcard" data-a="go" data-k="bayar"><span class="hi" style="background:var(--grad-cta)">💳</span><b>Pembayaran</b><span class="muted">Muat naik bukti pembayaran menggunakan No. Invoice atau No. Kad Pengenalan murid.</span><i class="hgo">Muat naik bukti →</i></button>
+      <button class="hcard" data-a="go" data-k="resit"><span class="hi" style="background:linear-gradient(135deg,#0EA5E9,#6D28D9)">🧾</span><b>Resit</b><span class="muted">Muat turun resit rasmi selepas urusan di koperasi selesai.</span><i class="hgo">Muat turun resit →</i></button></div>`;
   }
   function billView() {
     const t = F.done;
@@ -149,6 +151,7 @@ const KP_LOGO = "https://lh3.googleusercontent.com/d/1JFlMpX8nCN4ZKW9SRiNdtFT-UC
       ${F.cash ? `<div class="note">Sila bawa invoice (atau tunjuk QR) ke kaunter koperasi untuk bayaran tunai dan pengambilan barang. Terima kasih.</div>` : ""}
       <div class="card pad" style="display:flex;flex-direction:column;gap:12px">${billHtml(t)}
         <button class="btn cta" data-a="pdf">⬇ Muat turun invoice (PDF)</button>
+        <div class="card pad" style="text-align:center;background:#FAF5FF"><b>QR akaun Koperasi untuk pembayaran</b><div style="margin:10px 0"><img alt="QR akaun Koperasi" src="${F.qrPay || KP_QR_DRIVE}" referrerpolicy="no-referrer" style="max-width:240px;width:100%;border-radius:12px;background:#fff"></div><button class="btn line" data-a="dlqr">⬇ Muat turun gambar QR</button></div>
         <div class="sp" style="gap:8px;flex-wrap:wrap"><button class="btn" data-a="teruskan">Teruskan pembayaran</button><button class="btn line" data-a="tunai">Bayar tunai di koperasi</button></div>
         <button class="btn line" data-a="baru">Buat tempahan lain</button></div>`;
   }
@@ -170,6 +173,39 @@ const KP_LOGO = "https://lh3.googleusercontent.com/d/1JFlMpX8nCN4ZKW9SRiNdtFT-UC
         ${t.bayar === "Menunggu semakan" && can ? `<div class="muted small">Bukti telah diterima. Anda boleh memuat naik semula jika perlu.</div>` : ""}</div>`;
     });
     return h;
+  }
+
+  function resitView() {
+    let h = HERO("Resit", "Muat turun resit selepas urusan di koperasi selesai.", true);
+    h += `<div class="card pad"><div class="step"><i>1</i><h2>Cari tempahan</h2></div>
+      <label class="fld"><span class="lbl">No. Invoice (cth. T-00012) atau No. Kad Pengenalan murid</span><input data-i="rq" data-enter="semakResit" autocomplete="off" value="${esc(F.rq)}" placeholder="T-00012 atau 110203040506"></label>
+      <div style="margin-top:10px"><button class="btn cta" data-a="semakResit" ${F.rbusy ? "disabled" : ""}>${F.rbusy ? "Mencari…" : "Semak resit"}</button></div>
+      ${F.rerr ? `<div class="err" role="alert" style="margin-top:10px">${esc(F.rerr)}</div>` : ""}</div>`;
+    if (F.rres) F.rres.forEach((t) => {
+      h += t.resit ? `<div class="card pad" style="display:flex;flex-direction:column;gap:10px"><div class="sp"><div><b class="hd" style="font-size:18px">Resit ${esc(t.resit.no)}</b><div class="muted small">Invoice ${esc(t.no)} · ${esc(t.resit.tarikh.slice(0, 16))} · ${esc(t.murid)}</div></div><i class="pill p-ok">Selesai</i></div>
+        <div>${t.resit.items.map((i) => `<div class="irow" style="grid-template-columns:1fr auto;padding:8px 0"><span>${esc(i.nama)}<span class="muted small"> · ${i.qty} x ${i.harga.toFixed(2)}</span></span><b>${i.jumlah.toFixed(2)}</b></div>`).join("")}<div class="sp" style="padding-top:8px"><b>Jumlah</b><b class="hd" style="font-size:20px;color:var(--pri-d)">${rm(t.resit.jumlah)}</b></div></div>
+        <button class="btn cta" data-a="resitpdf" data-k="${esc(t.no)}">⬇ Muat turun resit (PDF)</button></div>`
+        : `<div class="card pad"><div class="sp"><b class="hd" style="font-size:18px">${esc(t.no)}</b><i class="pill ${t.status === "Batal" ? "p-bad" : "p-warn"}">${esc(t.status === "Batal" ? "Dibatalkan" : "Belum selesai")}</i></div><div class="note" style="margin-top:8px">${t.status === "Batal" ? "Tempahan ini telah dibatalkan, tiada resit." : "<b>Resit belum wujud.</b> Resit dikeluarkan selepas anda menyelesaikan urusan pembayaran dan pengambilan barang di koperasi."}</div></div>`;
+    });
+    return h;
+  }
+  function buatResitPdf(r, t) {
+    if (!window.jspdf) { alert("Pustaka PDF tidak dapat dimuatkan."); return null; }
+    const d = new window.jspdf.jsPDF({ unit: "mm", format: "a5" }), W = 148, M = 12; let y = 16;
+    d.setFont("helvetica", "bold"); d.setFontSize(14); d.text("RESIT RASMI", W / 2, y, { align: "center" });
+    y += 6; d.setFontSize(10); d.text(A(r.nama || F.resit.nama || "Koperasi SMA (JAIM) Al-Asyraf"), W / 2, y, { align: "center" });
+    y += 5; d.setFont("helvetica", "normal"); d.text("SM Arab (JAIM) Al-Asyraf", W / 2, y, { align: "center" });
+    y += 8; d.setFontSize(10);
+    [["No. Resit", r.no], ["Tarikh", r.tarikh], ["Rujukan tempahan", t.no], ["Murid", t.murid + (t.kelas ? " (" + t.kelas + ")" : "")], ["Juruwang", r.juruwang]].forEach(([k, v]) => { d.setFont("helvetica", "bold"); d.text(k, M, y); d.setFont("helvetica", "normal"); d.text(A(v), M + 38, y); y += 5.5; });
+    y += 2; d.setDrawColor(150); d.line(M, y, W - M, y); y += 5; d.setFont("helvetica", "bold"); d.text("Barang", M, y); d.text("Qty", 90, y, { align: "right" }); d.text("Harga", 110, y, { align: "right" }); d.text("Jumlah", W - M, y, { align: "right" }); y += 5; d.setFont("helvetica", "normal");
+    r.items.forEach((i) => { if (y > 170) { d.addPage(); y = 16; } const ln = d.splitTextToSize(A(i.nama), 66); d.text(ln, M, y); d.text(String(i.qty), 90, y, { align: "right" }); d.text(i.harga.toFixed(2), 110, y, { align: "right" }); d.text(i.jumlah.toFixed(2), W - M, y, { align: "right" }); y += 5 * ln.length; });
+    y += 1; d.line(M, y, W - M, y); y += 6; d.setFont("helvetica", "bold"); d.setFontSize(12); d.text("JUMLAH", M, y); d.text("RM " + r.jumlah.toFixed(2), W - M, y, { align: "right" });
+    d.setFontSize(10); d.setFont("helvetica", "normal"); y += 6;
+    if (r.qr > 0 && r.kaedah !== "QR DuitNow") { d.text("Bayaran QR (bukti)", M, y); d.text("RM " + r.qr.toFixed(2), W - M, y, { align: "right" }); y += 5; d.text("Tunai diterima", M, y); d.text("RM " + r.tunai.toFixed(2), W - M, y, { align: "right" }); y += 5; }
+    else { d.text("Kaedah: " + A(r.kaedah), M, y); y += 5; }
+    if (r.baki > 0) { d.text("Baki dipulangkan", M, y); d.text("RM " + r.baki.toFixed(2), W - M, y, { align: "right" }); y += 5; }
+    d.setFontSize(9); d.setTextColor(120); d.text("Terima kasih. Pemulangan wang tidak dibenarkan.", W / 2, 200, { align: "center" });
+    return d;
   }
 
   /* ---------- invoice PDF ---------- */
@@ -232,8 +268,18 @@ const KP_LOGO = "https://lh3.googleusercontent.com/d/1JFlMpX8nCN4ZKW9SRiNdtFT-UC
   const ACT = {
     muat: () => { F.err = ""; load(); },
     home: () => { F.view = "home"; draw(); window.scrollTo(0, 0); },
-    go: (t) => { F.view = t.dataset.k; F.cash = false; draw(); window.scrollTo(0, 0); },
+    go: (t) => { F.view = t.dataset.k; F.cash = false; F.rres = null; F.rerr = ""; draw(); window.scrollTo(0, 0); },
     pdf: () => { const d = buatPdf(F.done); if (d) d.save("Invois-" + F.done.no + ".pdf"); },
+    dlqr: () => { if (F.qrPay) { const a = document.createElement("a"); a.href = F.qrPay; a.download = "QR-Bayaran-Koperasi.png"; document.body.appendChild(a); a.click(); a.remove(); } else window.open(KP_QR_DRIVE, "_blank", "noopener"); },
+    semakResit: async () => {
+      const q = (F.rq || "").trim(); F.rerr = ""; F.rres = null;
+      if (!q) { F.rerr = "Sila masukkan No. Invoice atau No. Kad Pengenalan murid."; draw(); return; }
+      F.rbusy = true; draw();
+      try { const j = await (await fetch(KP_API, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "cariTempahan", q }) })).json(); if (!j.success) F.rerr = j.message || "Tempahan tidak dijumpai."; else F.rres = j.hasil; }
+      catch (e) { F.rerr = "Tiada sambungan ke pelayan. Cuba lagi."; }
+      F.rbusy = false; draw();
+    },
+    resitpdf: (t) => { const x = (F.rres || []).find((y) => y.no === t.dataset.k); if (!x || !x.resit) return; const d = buatResitPdf(x.resit, x); if (d) d.save("Resit-" + x.resit.no + ".pdf"); },
     tunai: () => { F.cash = true; draw(); window.scrollTo(0, 0); },
     teruskan: () => { F.view = "bayar"; F.bq = F.done.no; F.bres = null; F.berr = ""; F.bmsg = {}; draw(); ACT.semak(); },
     semak: async () => {
@@ -289,7 +335,8 @@ const KP_LOGO = "https://lh3.googleusercontent.com/d/1JFlMpX8nCN4ZKW9SRiNdtFT-UC
     bnama: (t) => { F.baru.nama = t.value; },
     bkp: (t) => { const a = jantina(); F.baru.kp = t.value; if (jantina() !== a) { reset(); draw(); const e = $("[data-i=bkp]"); if (e) { e.focus(); e.setSelectionRange(e.value.length, e.value.length); } } },
     size: (t) => { F.size[t.dataset.k] = t.value; draw(); },
-    bq: (t) => { F.bq = t.value; }
+    bq: (t) => { F.bq = t.value; },
+    rq: (t) => { F.rq = t.value; }
   };
   document.addEventListener("click", (e) => { const t = e.target.closest("[data-a]"); if (t && ACT[t.dataset.a]) ACT[t.dataset.a](t); });
   document.addEventListener("input", (e) => { const t = e.target.closest("[data-i]"); if (t && INP[t.dataset.i] && (t.tagName === "INPUT")) INP[t.dataset.i](t); });

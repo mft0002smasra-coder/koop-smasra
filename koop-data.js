@@ -50,7 +50,7 @@ KP.data = (function () {
     ji.forEach((x) => { (items[x.NO] = items[x.NO] || []).push({ kod: s(x.KOD), nama: s(x.NAMA), kategori: s(x.KATEGORI), qty: n(x.QTY), harga: n(x.HARGA), kos: n(x.KOS), jumlah: r2(n(x.HARGA) * n(x.QTY)) }); });
     return jr.filter((x) => s(x.NO)).filter((x) => { const d = s(x.TARIKH).slice(0, 10); return (!dari || d >= dari) && (!hingga || d <= hingga) && (!nama || x.JURUWANG === nama); }).map((x) => ({
       no: s(x.NO), tarikh: s(x.TARIKH), juruwang: s(x.JURUWANG), kumpulan: s(x.KUMPULAN), tingkatan: n(x.TINGKATAN), murid: s(x.MURID), kelasMurid: s(x.KELAS_MURID), kaedah: s(x.KAEDAH),
-      jumlah: n(x.JUMLAH), tunai: n(x.TUNAI), baki: n(x.BAKI), status: s(x.STATUS), dibatalOleh: s(x.DIBATAL_OLEH), sebabBatal: s(x.SEBAB_BATAL), items: items[x.NO] || [] }));
+      jumlah: n(x.JUMLAH), tunai: n(x.TUNAI), baki: n(x.BAKI), qr: s(x.KAEDAH) === "QR DuitNow" && !n(x.QR) ? n(x.JUMLAH) : n(x.QR), tempahan: s(x.TEMPAHAN), status: s(x.STATUS), dibatalOleh: s(x.DIBATAL_OLEH), sebabBatal: s(x.SEBAB_BATAL), items: items[x.NO] || [] }));
   }
 
   async function getJualan(b) {
@@ -61,16 +61,16 @@ KP.data = (function () {
 
   async function laporan(b) {
     const [all, br] = await Promise.all([resitList(s(b.dari), s(b.hingga), ""), allBarang()]);
-    const rs = all.filter((x) => x.status !== "Batal"), T = { hasil: 0, kos: 0, resit: rs.length }, kat = {}, kae = {}, kum = {}, hari = {}, bulan = {}, brg = {};
+    const rs = all.filter((x) => x.status !== "Batal"), T = { hasil: 0, kos: 0, resit: rs.length }, kat = {}, kae = {}, kum = {}, hari = {}, bulan = {}, brg = {}, jen = {}, ting = {};
     const add = (m, k, h, c) => { const o = (m[k] = m[k] || { hasil: 0, kos: 0 }); o.hasil += h; o.kos += c; };
     rs.forEach((r) => {
       let h = 0, c = 0;
       r.items.forEach((i) => { const ih = i.harga * i.qty, ic = i.kos * i.qty; h += ih; c += ic; add(kat, i.kategori || "Lain-lain", ih, ic); const bo = (brg[i.nama] = brg[i.nama] || { qty: 0, hasil: 0 }); bo.qty += i.qty; bo.hasil += ih; });
-      T.hasil += h; T.kos += c; add(kae, r.kaedah, h, c); add(kum, r.kumpulan, h, c); add(hari, r.tarikh.slice(0, 10), h, c); add(bulan, r.tarikh.slice(0, 7), h, c);
+      T.hasil += h; T.kos += c; const qr = Math.min(h, r.qr || 0); add(kae, "QR DuitNow", qr, 0); add(kae, "Tunai", h - qr, 0); add(kum, r.kumpulan, h, c); add(jen, r.kumpulan === "Terus" ? "Jualan terus" : "Jualan tempahan", h, c); if (r.kumpulan !== "Terus") add(ting, r.tingkatan ? "Tingkatan " + r.tingkatan : "Lain-lain", h, c); add(hari, r.tarikh.slice(0, 10), h, c); add(bulan, r.tarikh.slice(0, 7), h, c);
     });
     const arr = (m, key) => Object.keys(m).sort().map((k) => { const o = {}; o[key] = k; o.hasil = r2(m[k].hasil); o.kos = r2(m[k].kos); o.untung = r2(m[k].hasil - m[k].kos); return o; });
     T.hasil = r2(T.hasil); T.kos = r2(T.kos); T.untung = r2(T.hasil - T.kos); T.margin = T.hasil ? Math.round(T.untung / T.hasil * 1000) / 10 : 0;
-    return { success: true, jumlah: T, kategori: arr(kat, "nama"), kaedah: arr(kae, "nama"), kumpulan: arr(kum, "nama"), harian: arr(hari, "tarikh"), bulanan: arr(bulan, "bulan"),
+    return { success: true, jumlah: T, kategori: arr(kat, "nama"), kaedah: arr(kae, "nama"), kumpulan: arr(kum, "nama"), jenis: arr(jen, "nama"), tingkatan: arr(ting, "nama"), harian: arr(hari, "tarikh"), bulanan: arr(bulan, "bulan"),
       terlaris: Object.keys(brg).map((k) => ({ nama: k, qty: brg[k].qty, hasil: r2(brg[k].hasil) })).sort((a, c) => c.qty - a.qty).slice(0, 10),
       stokRendah: br.filter((x) => x.stok <= x.min).map((x) => ({ kod: x.kod, nama: x.nama, stok: x.stok, min: x.min })), nilaiStok: r2(br.reduce((t, x) => t + x.stok * x.kos, 0)) };
   }
@@ -80,7 +80,7 @@ KP.data = (function () {
   }
 
   async function getTempahan() {
-    return { success: true, tempahan: (await gv("KP_Tempahan")).filter((x) => s(x.NO)).reverse().map((x) => { let it = []; try { it = JSON.parse(x.ITEMS); } catch (e) {} return { no: s(x.NO), tarikh: s(x.TARIKH), murid: s(x.MURID), kelasMurid: s(x.KELAS_MURID), kumpulan: s(x.KUMPULAN), tingkatan: n(x.TINGKATAN), items: it, jumlah: n(x.JUMLAH), status: s(x.STATUS), oleh: s(x.OLEH), noResit: s(x.NO_RESIT), catatan: s(x.CATATAN), kp: s(x.KP), baru: f1(x.BARU), bayar: s(x.BAYAR) || "Belum", tarikhBayar: s(x.TARIKH_BAYAR), adaBukti: s(x.BUKTI) ? 1 : 0 }; }) };
+    return { success: true, tempahan: (await gv("KP_Tempahan")).filter((x) => s(x.NO)).reverse().map((x) => { let it = []; try { it = JSON.parse(x.ITEMS); } catch (e) {} return { no: s(x.NO), tarikh: s(x.TARIKH), murid: s(x.MURID), kelasMurid: s(x.KELAS_MURID), kumpulan: s(x.KUMPULAN), tingkatan: n(x.TINGKATAN), items: it, jumlah: n(x.JUMLAH), status: s(x.STATUS), oleh: s(x.OLEH), noResit: s(x.NO_RESIT), catatan: s(x.CATATAN), amaunQr: n(x.AMAUN_QR), kp: s(x.KP), baru: f1(x.BARU), bayar: s(x.BAYAR) || "Belum", tarikhBayar: s(x.TARIKH_BAYAR), adaBukti: s(x.BUKTI) ? 1 : 0 }; }) };
   }
 
   return { getTempahan, getBarang, getStokLog, getJualan, laporan, getPengguna };

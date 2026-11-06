@@ -34,7 +34,7 @@
     return `<div class="resit"><div style="text-align:center"><b>${esc(nm)}</b><br>${esc(r.no)}<br>${esc(r.tarikh)}</div><hr>
       <div>Juruwang: ${esc(r.juruwang)}</div>${r.murid ? `<div>Murid: ${esc(r.murid)}${r.kelasMurid ? " (" + esc(r.kelasMurid) + ")" : ""}</div>` : ""}<div>Pembeli: ${esc(r.kumpulan)}${r.tingkatan ? " · T" + r.tingkatan : ""}</div><hr>
       ${(r.items || []).map((i) => `<div class="l"><span>${esc(i.nama)}<br>&nbsp;${i.qty} x ${Number(i.harga).toFixed(2)}</span><span>${Number(i.jumlah != null ? i.jumlah : i.harga * i.qty).toFixed(2)}</span></div>`).join("")}<hr>
-      <div class="l"><b>JUMLAH</b><b>${rm(r.jumlah)}</b></div><div class="l"><span>${esc(r.kaedah)}</span><span>${rm(r.tunai)}</span></div><div class="l"><span>Baki</span><span>${rm(r.baki)}</span></div>
+      <div class="l"><b>JUMLAH</b><b>${rm(r.jumlah)}</b></div>${r.qr > 0 && r.kaedah !== "QR DuitNow" ? `<div class="l"><span>Bayaran QR (bukti)</span><span>${rm(r.qr)}</span></div><div class="l"><span>Tunai diterima</span><span>${rm(r.tunai)}</span></div>` : `<div class="l"><span>${esc(r.kaedah)}</span><span>${rm(r.kaedah === "QR DuitNow" ? r.jumlah : r.tunai)}</span></div>`}<div class="l"><span>Baki</span><span>${rm(r.baki)}</span></div>${r.tempahan ? `<div class="l"><span>Rujukan tempahan</span><span>${esc(r.tempahan)}</span></div>` : ""}
       ${r.status === "Batal" ? `<hr><div style="text-align:center"><b>*** DIBATALKAN ***</b></div>` : ""}<hr><div style="text-align:center">Terima kasih</div></div>`;
   }
   KP.printResit = (r) => KP.printHtml(resitHtml(r));
@@ -103,23 +103,44 @@
   const findCode = (code) => { code = String(code || "").trim(); const lc = code.toLowerCase(); return D.barang.find((b) => (b.barcode && b.barcode === code) || b.kod.toLowerCase() === lc); };
 
   /* ================= JUALAN (POS) ================= */
-  const J = { mode: "", sub: "", cat: "", grp: "Luar asrama", ting: 1, cart: {}, kaedah: "Tunai", tunai: "", murid: null, tmp: null, recent: [], last: "", lastAt: 0 };
+  const J = { mode: "", sub: "", cat: "", grp: "Luar asrama", ting: 1, cart: {}, kaedah: "Tunai", tunai: "", murid: null, tmp: null, bukti: null, qrMode: "", qrAmt: "", recent: [], last: "", lastAt: 0 };
   const jOk = (b) => (J.mode === "tempahan" ? b.set && (J.grp === "Asrama" ? b.as : b.lr) && b.t[J.ting - 1] : true); // Jualan Terus: SEMUA barang koperasi; Tempahan: ikut SET (kumpulan & tingkatan)
   const jTotal = () => D.barang.reduce((s, b) => s + (J.cart[b.kod] ? b.jual * J.cart[b.kod] : 0), 0);
   function jPrune() { Object.keys(J.cart).forEach((k) => { const b = D.barang.find((x) => x.kod === k); if (!b || !jOk(b)) delete J.cart[k]; }); }
-  function jReset() { J.mode = ""; J.sub = ""; J.cat = ""; J.cart = {}; J.tunai = ""; J.murid = null; J.tmp = null; J.recent = []; KP.scan.stop(); }
+  function jReset() { J.mode = ""; J.sub = ""; J.cat = ""; J.cart = {}; J.tunai = ""; J.murid = null; J.tmp = null; J.recent = []; jClearBukti(); KP.scan.stop(); }
+  function jClearBukti() { if (J.bukti && J.bukti.url) URL.revokeObjectURL(J.bukti.url); J.bukti = null; J.qrMode = ""; J.qrAmt = ""; }
+  const r2 = (x) => Math.round(x * 100) / 100;
+  const jQr = () => { if (!(J.tmp && J.tmp.adaBukti)) return 0; const tot = jTotal(); return J.qrMode === "sama" ? tot : J.qrMode === "beza" ? Math.min(tot, Math.max(0, parseFloat(J.qrAmt) || 0)) : 0; };
+  const jDue = () => r2(Math.max(0, jTotal() - jQr()));
   function jBayarState() {
     const tot = jTotal(), tn = parseFloat(J.tunai) || 0, n = Object.keys(J.cart).length, el = $("#j-baki"), bt = $("#j-bayar");
+    if (J.tmp) {
+      const due = jDue(), blok = J.tmp.adaBukti && (!J.qrMode || (J.qrMode === "beza" && !(parseFloat(J.qrAmt) > 0)));
+      if (el) el.textContent = rm(Math.max(0, tn - due));
+      if (bt) bt.disabled = !n || blok || (due > 0 && tn + 0.0001 < due);
+      return;
+    }
     if (el) el.textContent = J.kaedah === "Tunai" ? rm(Math.max(0, tn - tot)) : rm(0);
     if (bt) bt.disabled = !n || (J.kaedah === "Tunai" && tn + 0.0001 < tot);
+  }
+  function jQrHtml() {
+    if (!J.tmp.adaBukti) return `<div class="note small">Tiada bukti pembayaran QR dimuat naik. Teruskan dengan <b>bayaran tunai penuh</b>.</div>`;
+    return `<div class="note small"><b>Bukti pembayaran QR ada.</b> Semak amaun pada bukti (paparan di sebelah kiri), kemudian pilih:</div>
+      <div class="chips">${[["sama", "✓ Amaun sama"], ["beza", "✗ Amaun tak sama"], ["abai", "Abaikan bukti (tunai penuh)"]].map(([k, v]) => `<button class="ch ${J.qrMode === k ? "on" : ""}" data-a="j-qrm" data-k="${k}">${v}</button>`).join("")}</div>
+      ${J.qrMode === "beza" ? `<label class="fld"><span class="lbl">Jumlah pada bukti pembayaran (RM)</span><input data-i="qramt" inputmode="decimal" value="${esc(J.qrAmt)}" placeholder="cth. 50.00"></label>` : ""}`;
+  }
+  function jDueHtml() {
+    const tot = jTotal(), qr = jQr(), due = jDue();
+    return `${qr > 0 ? `<div class="sp"><span class="muted">Dibayar melalui QR</span><b class="num">${rm(qr)}</b></div>` : ""}<div class="sp"><span class="lbl">Baki tunai perlu dibayar</span><b class="hd" style="font-size:22px;color:var(--pri-d)">${rm(due)}</b></div>
+      ${due > 0 ? `<label class="fld"><span class="lbl">Wang tunai diterima (RM)</span><input data-i="tunai" inputmode="decimal" value="${esc(J.tunai)}"></label><div class="chips"><button class="ch" data-a="j-tn" data-k="${due}">Tepat</button>${[5, 10, 20, 50, 100].map((n) => `<button class="ch" data-a="j-tn" data-k="${n}">${n}</button>`).join("")}</div><div class="sp"><span class="muted">Baki dipulangkan</span><b class="num" id="j-baki"></b></div>` : `<div class="note small">Tiada tunai perlu dikutip.</div>`}`;
   }
   function jCartHtml() {
     const tot = jTotal(), lines = D.barang.filter((b) => J.cart[b.kod]);
     return `<div class="sp"><h2>Troli</h2><span class="muted small">${J.mode === "tempahan" ? J.grp + " · T" + J.ting : "Jualan terus"}</span></div>
       ${lines.map((b) => `<div class="sp" style="border-bottom:1px solid var(--ln2);padding-bottom:6px"><div style="min-width:0"><b style="font-size:13.5px">${esc(b.nama)}</b><div class="muted small">${rm(b.jual)} × ${J.cart[b.kod]} = <b>${rm(b.jual * J.cart[b.kod])}</b></div></div><div class="qty"><button data-a="j-min" data-k="${esc(b.kod)}" aria-label="Kurang">−</button><b class="num">${J.cart[b.kod]}</b><button data-a="j-add" data-k="${esc(b.kod)}" aria-label="Tambah">+</button></div></div>`).join("") || `<div class="empty">Troli kosong.</div>`}
       <div class="sp"><span class="lbl">Jumlah</span><b class="hd" style="font-size:24px;color:var(--pri-d)">${rm(tot)}</b></div>
-      <div class="chips">${["Tunai", "QR DuitNow"].map((k) => `<button class="ch ${k === J.kaedah ? "on" : ""}" data-a="j-kae" data-k="${k}">${k}</button>`).join("")}</div>
-      ${J.kaedah === "Tunai" ? `<label class="fld"><span class="lbl">Wang diterima (RM)</span><input data-i="tunai" inputmode="decimal" value="${esc(J.tunai)}"></label>
+      ${J.tmp ? jQrHtml() + `<div id="j-paydue" style="display:flex;flex-direction:column;gap:10px">${jDueHtml()}</div>` : `<div class="chips">${["Tunai", "QR DuitNow"].map((k) => `<button class="ch ${k === J.kaedah ? "on" : ""}" data-a="j-kae" data-k="${k}">${k}</button>`).join("")}</div>`}
+      ${J.tmp ? "" : J.kaedah === "Tunai" ? `<label class="fld"><span class="lbl">Wang diterima (RM)</span><input data-i="tunai" inputmode="decimal" value="${esc(J.tunai)}"></label>
       <div class="chips"><button class="ch" data-a="j-tn" data-k="${tot}">Tepat</button>${[5, 10, 20, 50, 100].map((n) => `<button class="ch" data-a="j-tn" data-k="${n}">${n}</button>`).join("")}</div><div class="sp"><span class="muted">Baki</span><b class="num" id="j-baki"></b></div>` : `<div class="note small">Imbas QR DuitNow koperasi, sahkan bayaran diterima sebelum teruskan.</div>`}
       <button class="btn cta block" id="j-bayar" data-a="j-bayar" style="font-size:15px">Bayar &amp; cetak resit</button>
       <button class="btn line block" data-a="j-kosong" ${lines.length ? "" : "disabled"}>Kosongkan troli</button>`;
@@ -139,7 +160,7 @@
     const back = (t) => `<div class="crumb"><button class="btn line sm" data-a="j-back">‹ Kembali</button><b class="hd" style="color:var(--pri-d)">${t}</b></div>`;
     if (!J.mode) return `<div class="bigs">${big("j-mode", "Jualan Terus", "Imbas barcode atau pilih barang terus daripada kategori.", "terus", "cta").replace('data-a="j-mode"', 'data-a="j-mode" data-k="terus"')}${big("j-mode", "Jualan Tempahan", "Imbas QR / barcode pada bill tempahan, senarai barang terus masuk troli.", "tempahan").replace('data-a="j-mode"', 'data-a="j-mode" data-k="tempahan"')}</div>`;
     if (J.mode === "tempahan") {
-      if (J.tmp) return `${back("Jualan Tempahan")}<div class="card pad" style="display:flex;flex-direction:column;gap:8px"><div class="sp"><h2>Tempahan ${esc(J.tmp.no)}</h2>${pill("Dimuatkan ke troli", "ok")}</div><div class="muted small">${esc(J.tmp.tarikh.slice(0, 16))} · oleh ${esc(J.tmp.oleh)}${J.tmp.catatan ? " · " + esc(J.tmp.catatan) : ""}</div><div class="sp"><span>Bayaran: ${pill(J.tmp.bayar, J.tmp.bayar === "Disahkan" ? "ok" : J.tmp.bayar === "Belum" ? "gr" : "warn")}</span><span style="display:flex;gap:8px">${J.tmp.adaBukti ? `<button class="btn line sm" data-a="j-bukti">Lihat bukti</button>` : ""}${J.tmp.adaBukti && J.tmp.bayar !== "Disahkan" ? `<button class="btn sm" data-a="j-sah">Sahkan bayaran</button>` : ""}</span></div><div>Semak troli di sebelah, kemudian bayar. Barang yang habis stok tidak dimasukkan.</div><div><button class="btn line sm" data-a="j-tmp-lain">Imbas tempahan lain</button></div></div>`;
+      if (J.tmp) return `${back("Jualan Tempahan")}<div class="card pad" style="display:flex;flex-direction:column;gap:8px"><div class="sp"><h2>Tempahan ${esc(J.tmp.no)}</h2>${pill("Dimuatkan ke troli", "ok")}</div><div class="muted small">${esc(J.tmp.tarikh.slice(0, 16))} · oleh ${esc(J.tmp.oleh)}${J.tmp.catatan ? " · " + esc(J.tmp.catatan) : ""}</div><div class="sp"><span>Bayaran: ${pill(J.tmp.bayar, J.tmp.bayar === "Disahkan" ? "ok" : J.tmp.bayar === "Belum" ? "gr" : "warn")}</span><span style="display:flex;gap:8px">${J.tmp.adaBukti ? `<button class="btn line sm" data-a="j-bukti">Besarkan bukti</button>` : ""}</span></div>${J.tmp.adaBukti ? (J.bukti ? (/pdf/.test(J.bukti.mime) ? `<iframe src="${J.bukti.url}" title="Bukti bayaran" style="width:100%;height:340px;border:1px solid var(--ln);border-radius:10px"></iframe>` : `<img src="${J.bukti.url}" alt="Bukti bayaran" data-a="j-bukti" style="max-width:100%;max-height:340px;object-fit:contain;border:1px solid var(--ln);border-radius:10px;cursor:zoom-in;align-self:flex-start">`) : `<div class="muted small">Memuatkan bukti pembayaran…</div>`) : `<div class="note small">Tiada bukti pembayaran QR. Terima bayaran tunai di kaunter.</div>`}<div>Semak troli di sebelah, kemudian bayar. Barang yang habis stok tidak dimasukkan.</div><div><button class="btn line sm" data-a="j-tmp-lain">Imbas tempahan lain</button></div></div>`;
       return `${back("Jualan Tempahan")}${scanCard("Imbas bill tempahan", "Atau taip no. tempahan, cth. T-00012")}`;
     }
     if (!J.sub) return `${back("Jualan Terus")}<div class="bigs">${big("j-sub", "Scan barcode", "Imbas barcode barang — terus masuk troli.", "scan", "cta").replace('data-a="j-sub"', 'data-a="j-sub" data-k="scan"')}${big("j-sub", "Pilih barang", "Pilih kategori, kemudian pilih barang.", "pilih").replace('data-a="j-sub"', 'data-a="j-sub" data-k="pilih"')}</div>`;
@@ -182,10 +203,17 @@
     const t = j.tempahan.find((x) => x.no.toUpperCase() === no);
     if (!t) { KP.beep(false); KP.toast("Tempahan tidak dijumpai: " + no, true); return; }
     if (t.status !== "Baharu") { KP.beep(false); KP.toast("Tempahan " + t.no + " sudah " + t.status.toLowerCase() + ".", true); return; }
-    J.tmp = t; J.grp = t.kumpulan; J.ting = t.tingkatan; J.murid = t.murid ? { nama: t.murid, kelas: t.kelasMurid } : null; J.cart = {};
+    jClearBukti(); J.tmp = t; J.grp = t.kumpulan; J.ting = t.tingkatan; J.murid = t.murid ? { nama: t.murid, kelas: t.kelasMurid } : null; J.cart = {};
     const miss = [];
-    t.items.forEach((i) => { const b = D.barang.find((x) => x.kod === i.kod); if (!b || !jOk(b) || b.stok <= 0) { miss.push(b ? b.nama : i.kod); return; } J.cart[b.kod] = Math.min(i.qty, b.stok); if (i.qty > b.stok) miss.push(b.nama + " (stok " + b.stok + ")"); });
+    t.items.forEach((i) => { const b = D.barang.find((x) => x.kod === i.kod); if (!b || !jOk(b)) { miss.push(b ? b.nama : i.kod); return; } if (b.stok <= 0) { miss.push(b.nama + " (stok kosong)"); return; } J.cart[b.kod] = Math.min(i.qty, b.stok); if (i.qty > b.stok) miss.push(b.nama + " (stok " + b.stok + ")"); });
     KP.beep(true); KP.rerender(); if (miss.length) KP.toast("Tidak lengkap: " + miss.join(", "), true);
+    if (t.adaBukti) {
+      const j2 = await KP.call("lihatBukti", { no: t.no });
+      if (j2 && J.tmp && J.tmp.no === t.no) {
+        const bin = atob(j2.data), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+        J.bukti = { url: URL.createObjectURL(new Blob([u8], { type: j2.mime })), mime: j2.mime }; KP.rerender();
+      }
+    }
   }
   KP.act["j-mode"] = (t) => { J.mode = t.dataset.k; J.sub = ""; J.cat = ""; J.cart = {}; J.tmp = null; KP.rerender(); };
   KP.act["j-sub"] = (t) => { J.sub = t.dataset.k; J.cat = ""; KP.rerender(); };
@@ -197,8 +225,9 @@
     const url = URL.createObjectURL(new Blob([u8], { type: j.mime }));
     KP.modal(`<h2 style="margin-bottom:10px">Bukti bayaran ${esc(J.tmp.no)}</h2>${/pdf/.test(j.mime) ? `<iframe src="${url}" style="width:100%;height:60vh;border:0"></iframe>` : `<img src="${url}" alt="Bukti bayaran" style="max-width:100%;border-radius:8px">`}<div class="sp" style="margin-top:12px"><a class="btn line" href="${url}" download="${esc(j.nama)}">Muat turun</a><button class="btn" data-a="tutup">Tutup</button></div>`);
   };
-  KP.act["j-sah"] = async () => { const j = await KP.call("sahkanBayaran", { no: J.tmp.no }); if (!j) return; J.tmp.bayar = "Disahkan"; KP.toast("Bayaran disahkan."); KP.rerender(); };
-  KP.act["j-tmp-lain"] = () => { J.tmp = null; J.cart = {}; KP.rerender(); };
+  KP.act["j-qrm"] = (t) => { J.qrMode = t.dataset.k; if (J.qrMode !== "beza") J.qrAmt = ""; J.tunai = ""; jCartRefresh(); };
+  KP.inp.qramt = (t) => { if (J.qrAmt === t.value) return; J.qrAmt = t.value; J.tunai = ""; const e = $("#j-paydue"); if (e) e.innerHTML = jDueHtml(); jBayarState(); };
+  KP.act["j-tmp-lain"] = () => { jClearBukti(); J.tmp = null; J.cart = {}; KP.rerender(); };
   KP.act["j-codego"] = () => { const i = $("#j-code"); if (!i) return; const v = i.value; i.value = ""; J.last = ""; jOnCode(v); i.focus(); };
   KP.act["j-kae"] = (t) => { J.kaedah = t.dataset.k; jCartRefresh(); };
   KP.act["j-add"] = (t) => { const b = D.barang.find((x) => x.kod === t.dataset.k); if (b) jAdd(b, false); };
@@ -209,7 +238,7 @@
   KP.act["j-bayar"] = async (t) => {
     const items = Object.keys(J.cart).map((k) => ({ kod: k, qty: J.cart[k] }));
     t.disabled = true;
-    const j = await KP.call("jual", { items, kumpulan: J.mode === "terus" ? "Terus" : J.grp, tingkatan: J.mode === "terus" ? 0 : J.ting, kaedah: J.kaedah, tunai: parseFloat(J.tunai) || 0, tempahan: J.tmp ? J.tmp.no : "", murid: J.murid ? { nama: J.murid.nama, kelas: J.murid.kelas } : null });
+    const j = await KP.call("jual", { items, kumpulan: J.mode === "terus" ? "Terus" : J.grp, tingkatan: J.mode === "terus" ? 0 : J.ting, kaedah: J.tmp ? "Tunai" : J.kaedah, qr: J.tmp ? jQr() : 0, tunai: parseFloat(J.tunai) || 0, tempahan: J.tmp ? J.tmp.no : "", murid: J.murid ? { nama: J.murid.nama, kelas: J.murid.kelas } : null });
     if (!j) { t.disabled = false; return; }
     const r = j.resit; r.murid = J.murid ? J.murid.nama : ""; r.kelasMurid = J.murid ? J.murid.kelas : "";
     jReset(); KP.lastResit = r;
@@ -282,11 +311,11 @@
       H.list = j.resit; if (!H.list.some((r) => r.no === H.sel)) H.sel = "";
     },
     view() {
-      const L = H.list.filter((r) => H.grp === "Semua" || r.kumpulan === H.grp), sah = L.filter((r) => r.status !== "Batal"), sel = H.list.find((r) => r.no === H.sel);
+      const L = H.list.filter((r) => H.grp === "Semua" || (H.grp === "Tempahan" ? r.kumpulan !== "Terus" : r.kumpulan === H.grp)), sah = L.filter((r) => r.status !== "Batal"), sel = H.list.find((r) => r.no === H.sel);
       const sum = (f) => sah.filter(f).reduce((s, r) => s + r.jumlah, 0), admin = KP.S.user.admin;
-      return `<div class="card pad"><div class="sp"><div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end"><label class="fld"><span class="lbl">Dari</span><input type="date" data-i="h-dari" value="${H.dari}"></label><label class="fld"><span class="lbl">Hingga</span><input type="date" data-i="h-hingga" value="${H.hingga}"></label></div>${chips(["Semua", "Terus", "Asrama", "Luar asrama"], H.grp, "h-grp")}</div></div>
-      <div class="row"><div class="card kpi"><div class="lbl">Jumlah jualan</div><div class="v">${rm(sum(() => 1))}</div></div><div class="card kpi"><div class="lbl">Bil. resit</div><div class="v">${sah.length}</div></div><div class="card kpi"><div class="lbl">Tunai</div><div class="v">${rm(sum((r) => r.kaedah === "Tunai"))}</div></div><div class="card kpi"><div class="lbl">QR DuitNow</div><div class="v">${rm(sum((r) => r.kaedah !== "Tunai"))}</div></div></div>
-      <div class="pos"><div class="card prods" style="padding:6px 0"><div class="tbl"><table><thead><tr><th>No.</th><th>Masa</th><th>Murid / pembeli</th><th>Kaedah</th><th class="r">Jumlah</th><th>Status</th></tr></thead><tbody>${L.map((r) => `<tr class="${r.no === H.sel ? "sel" : ""}" data-a="h-pilih" data-k="${esc(r.no)}" style="cursor:pointer"><td><b>${esc(r.no)}</b></td><td class="muted">${esc(r.tarikh.slice(5, 16))}</td><td>${esc(r.murid || r.kumpulan + (r.tingkatan ? " · T" + r.tingkatan : ""))}</td><td>${esc(r.kaedah)}</td><td class="r num">${rm(r.jumlah)}</td><td>${r.status === "Batal" ? pill("Batal", "bad") : pill("Sah", "ok")}</td></tr>`).join("") || `<tr><td colspan="6" class="empty">Tiada resit dalam tempoh ini.</td></tr>`}</tbody></table></div></div>
+      return `<div class="card pad"><div class="sp"><div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end"><label class="fld"><span class="lbl">Dari</span><input type="date" data-i="h-dari" value="${H.dari}"></label><label class="fld"><span class="lbl">Hingga</span><input type="date" data-i="h-hingga" value="${H.hingga}"></label></div>${chips(["Semua", "Terus", "Tempahan", "Asrama", "Luar asrama"], H.grp, "h-grp")}</div></div>
+      <div class="row"><div class="card kpi"><div class="lbl">Jumlah jualan</div><div class="v">${rm(sum(() => 1))}</div></div><div class="card kpi"><div class="lbl">Bil. resit</div><div class="v">${sah.length}</div></div><div class="card kpi"><div class="lbl">Tunai</div><div class="v">${rm(sah.reduce((s, r) => s + r.jumlah - Math.min(r.jumlah, r.qr || 0), 0))}</div></div><div class="card kpi"><div class="lbl">QR DuitNow</div><div class="v">${rm(sah.reduce((s, r) => s + Math.min(r.jumlah, r.qr || 0), 0))}</div></div><div class="card kpi"><div class="lbl">Resit tempahan</div><div class="v">${sah.filter((r) => r.kumpulan !== "Terus").length}</div></div></div>
+      <div class="pos"><div class="card prods" style="padding:6px 0"><div class="tbl"><table><thead><tr><th>No.</th><th>Masa</th><th>Murid / pembeli</th><th>Tempahan</th><th>Kaedah</th><th class="r">Jumlah</th><th>Status</th></tr></thead><tbody>${L.map((r) => `<tr class="${r.no === H.sel ? "sel" : ""}" data-a="h-pilih" data-k="${esc(r.no)}" style="cursor:pointer"><td><b>${esc(r.no)}</b></td><td class="muted">${esc(r.tarikh.slice(5, 16))}</td><td>${esc(r.murid || r.kumpulan + (r.tingkatan ? " · T" + r.tingkatan : ""))}</td><td class="muted">${esc(r.tempahan || "—")}</td><td>${esc(r.kaedah)}</td><td class="r num">${rm(r.jumlah)}</td><td>${r.status === "Batal" ? pill("Batal", "bad") : pill("Sah", "ok")}</td></tr>`).join("") || `<tr><td colspan="7" class="empty">Tiada resit dalam tempoh ini.</td></tr>`}</tbody></table></div></div>
       <div class="card pad cart" style="display:flex;flex-direction:column;gap:10px">${sel ? `${resitHtml(sel)}<button class="btn line block" data-a="h-cetak">Cetak semula resit</button>${admin && sel.status !== "Batal" ? `<button class="btn bad block" data-a="h-batal">Batalkan resit (Admin)</button><div class="muted small">Stok dipulangkan dan tindakan direkodkan.</div>` : ""}${sel.status === "Batal" ? `<div class="muted small">Dibatalkan oleh ${esc(sel.dibatalOleh)}: ${esc(sel.sebabBatal)}</div>` : ""}` : `<div class="empty">Pilih resit untuk melihat butiran.</div>`}</div></div>`;
     }
   };
@@ -460,7 +489,8 @@
       return `<div class="sp"><div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end">${chips(["Hari ini", "7 hari", "Bulan ini", "Bulan lepas", "Tahun ini", "Pilih tarikh"], R.rng, "r-rng")}${R.rng === "Pilih tarikh" ? `<input type="date" data-i="r-dari" value="${R.dari}" style="width:auto"><input type="date" data-i="r-hingga" value="${R.hingga}" style="width:auto">` : ""}</div><div style="display:flex;gap:8px"><button class="btn line sm" data-a="r-csv">Eksport CSV</button><button class="btn sm" data-a="r-cetak">Cetak / PDF</button></div></div>
       <div class="row"><div class="card kpi"><div class="lbl">Hasil jualan</div><div class="v">${rm0(T.hasil)}</div></div><div class="card kpi"><div class="lbl">Kos barang terjual</div><div class="v" style="color:var(--tx2)">${rm0(T.kos)}</div></div><div class="card kpi ok"><div class="lbl">Untung kasar</div><div class="v">${rm0(T.untung)}</div></div><div class="card kpi"><div class="lbl">Margin</div><div class="v">${T.margin}%</div></div><div class="card kpi"><div class="lbl">Nilai stok semasa</div><div class="v">${rm0(L.nilaiStok)}</div></div></div>
       <div class="row"><div class="card pad grow" style="flex:1.6 1 560px"><h2 style="margin-bottom:10px">Hasil jualan ${harian ? "harian" : "bulanan"} <span class="muted small" style="font-weight:400">RM</span></h2>${harian ? chart(L.harian, (r) => r.tarikh.slice(5)) : chart(L.bulanan, (r) => r.bulan)}</div>
-      <div class="grow" style="flex:1 1 320px;display:flex;flex-direction:column;gap:12px"><div class="card pad"><h2 style="margin-bottom:10px">Kaedah bayaran</h2>${share(L.kaedah)}</div><div class="card pad"><h2 style="margin-bottom:10px">Kumpulan pembeli</h2>${share(L.kumpulan)}</div></div></div>
+      <div class="grow" style="flex:1 1 320px;display:flex;flex-direction:column;gap:12px"><div class="card pad"><h2 style="margin-bottom:10px">Kaedah bayaran (QR vs tunai)</h2>${share(L.kaedah)}</div><div class="card pad"><h2 style="margin-bottom:10px">Kumpulan pembeli</h2>${share(L.kumpulan)}</div></div></div>
+      <div class="row"><div class="card pad grow" style="flex:1 1 280px"><h2 style="margin-bottom:10px">Jualan terus vs tempahan</h2>${share(L.jenis || [])}</div><div class="card pad grow" style="flex:1 1 280px"><h2 style="margin-bottom:10px">Tempahan mengikut tingkatan</h2>${share(L.tingkatan || [])}</div></div>
       <div class="row"><div class="card grow" style="flex:2 1 520px;padding:14px 0 6px"><h2 style="padding:0 16px 8px">Ringkasan mengikut kategori</h2><div class="tbl"><table><thead><tr><th>Kategori</th><th class="r">Hasil (RM)</th><th class="r">Kos (RM)</th><th class="r">Untung (RM)</th><th class="r">Margin</th></tr></thead><tbody>${L.kategori.map((k) => `<tr><td><b>${esc(k.nama)}</b></td><td class="r num">${k.hasil.toFixed(2)}</td><td class="r num">${k.kos.toFixed(2)}</td><td class="r num" style="color:var(--ok)">${k.untung.toFixed(2)}</td><td class="r num">${k.hasil ? Math.round(k.untung / k.hasil * 100) : 0}%</td></tr>`).join("")}<tr style="background:var(--pri-xl)"><td><b>Jumlah</b></td><td class="r num">${T.hasil.toFixed(2)}</td><td class="r num">${T.kos.toFixed(2)}</td><td class="r num" style="color:var(--ok)">${T.untung.toFixed(2)}</td><td class="r num">${T.margin}%</td></tr></tbody></table></div></div>
       <div class="card grow" style="flex:1 1 320px;padding:14px 0 6px"><h2 style="padding:0 16px 8px">Barang terlaris</h2><div class="tbl"><table style="min-width:300px"><thead><tr><th>Barang</th><th class="r">Unit</th><th class="r">Hasil</th></tr></thead><tbody>${L.terlaris.map((x) => `<tr><td><b>${esc(x.nama)}</b></td><td class="r num">${x.qty}</td><td class="r num">${x.hasil.toFixed(2)}</td></tr>`).join("") || `<tr><td colspan="3" class="empty">Tiada data.</td></tr>`}</tbody></table></div></div></div>`;
     }

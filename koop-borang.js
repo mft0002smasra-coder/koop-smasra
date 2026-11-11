@@ -46,7 +46,7 @@ const KP_LOGO = "https://lh3.googleusercontent.com/d/1JFlMpX8nCN4ZKW9SRiNdtFT-UC
       F.kelasList = [...new Set(F.murid.map((m) => m.kelas))].sort((a, b) => kelasT(a) - kelasT(b) || a.localeCompare(b, "ms", { numeric: true }));
       F.barang = br.filter((r) => r["KOD"] && f1(r["AKTIF"])).map((r) => ({ kod: String(r["KOD"]), nama: String(r["NAMA"]), kategori: String(r["KATEGORI"] || ""), jual: n(r["JUAL"]), lr: f1(r["LR"]), as: f1(r["AS"]),
         t: [1, 2, 3, 4, 5, 6].map((i) => f1(r["T" + i])), w: [1, 2, 3, 4, 5, 6].map((i) => f1(r["W" + i])),
-        q: [1, 2, 3, 4, 5, 6].map((i) => Math.max(1, Math.floor(n(r["Q" + i])))), jt: /^[LP]$/i.test(String(r["JANTINA"]).trim()) ? String(r["JANTINA"]).trim().toUpperCase() : "", varian: String(r["VARIAN"] || "").trim(), saiz: String(r["SAIZ"] || "").split(",").map((z) => z.trim()).filter(Boolean), baru: f1(r["UNTUKBARU"]),
+        q: [1, 2, 3, 4, 5, 6].map((i) => (String(r["Q" + i]).trim() === "" ? 1 : Math.max(0, Math.floor(n(r["Q" + i]))))), jt: /^[LP]$/i.test(String(r["JANTINA"]).trim()) ? String(r["JANTINA"]).trim().toUpperCase() : "", varian: String(r["VARIAN"] || "").trim(), saiz: String(r["SAIZ"] || "").split(",").map((z) => z.trim()).filter(Boolean), baru: f1(r["UNTUKBARU"]),
         bh: [1, 2, 3, 4, 5, 6].map((i) => { const v = String(r["BH" + i] || "").trim().toUpperCase(); return /^[ABC]$/.test(v) ? v : (!f1(r["LR"]) && f1(r["AS"]) ? "B" : f1(r["W" + i]) ? "A" : "C"); }) }));
       tt.forEach((r) => { try { const v = JSON.parse(r["NILAI"]); if (r["KUNCI"] === "kategori") F.kat = v; if (r["KUNCI"] === "resit") F.resit = v; if (r["KUNCI"] === "sesi") F.sesiCfg = v || {}; } catch (e) {} });
       F.ok = true;
@@ -78,11 +78,11 @@ const KP_LOGO = "https://lh3.googleusercontent.com/d/1JFlMpX8nCN4ZKW9SRiNdtFT-UC
       const r = map[key]; r.vars.push(b);
       (b.saiz.length ? b.saiz : [""]).forEach((z) => r.opts.push({ saiz: z, b }));
     });
-    out.forEach((r) => { r.sized = r.opts.some((o) => o.saiz); r.w = r.vars.some((b) => b.w[F.ting - 1]); r.baru = r.vars.some((b) => b.baru); r.q = r.vars[0].q[F.ting - 1] || 1; r.bh = r.vars[0].bh[F.ting - 1] || "C"; });
+    out.forEach((r) => { r.sized = r.opts.some((o) => o.saiz); r.q = r.vars[0].q[F.ting - 1]; r.baru = r.vars.some((b) => b.baru); r.wb = r.baru && F.mode === "baru" && F.grp === "Asrama" && r.vars.every((b) => !b.lr && b.as); r.w = (r.vars.some((b) => b.w[F.ting - 1]) && r.q > 0) || r.wb; r.min = r.w ? Math.max(1, r.q) : 1; r.bh = r.vars[0].bh[F.ting - 1] || "C"; });
     return out;
   }
   const isOn = (r) => r.w || (F.sel[r.key] !== undefined ? F.sel[r.key] : (r.baru && F.mode === "baru"));
-  const qtyOf = (r) => F.qty[r.key] || r.q;
+  const qtyOf = (r) => Math.max(r.min, F.qty[r.key] || Math.max(1, r.q));
   const pick = (r) => (r.sized ? (r.opts.find((o) => o.saiz === F.size[r.key]) || {}).b : r.vars[0]);
   const total = () => rows().filter(isOn).reduce((s, r) => { const b = pick(r); return s + (b ? b.jual * qtyOf(r) : 0); }, 0);
   const muridKelas = () => F.murid.filter((m) => m.kelas === F.kelas);
@@ -155,9 +155,10 @@ const KP_LOGO = "https://lh3.googleusercontent.com/d/1JFlMpX8nCN4ZKW9SRiNdtFT-UC
         const z = F.size[r.key];
         const sub = `${harga}${on && pb ? " × " + qtyOf(r) : ""}`;
         const sz = r.sized && on ? `<select class="szs" data-i="size" data-k="${esc(r.key)}" aria-label="Saiz ${esc(r.nama)}"><option value="">— pilih saiz —</option>${r.opts.map((o) => `<option value="${esc(o.saiz)}" ${z === o.saiz ? "selected" : ""}>${esc(o.saiz)} — ${rm(o.b.jual)}</option>`).join("")}</select>` : "";
-        const qty = `<div class="q"><i data-a="q-" data-k="${esc(r.key)}" role="button" tabindex="0" aria-label="Kurang">−</i>${qtyOf(r)}<i class="p" data-a="q+" data-k="${esc(r.key)}" role="button" tabindex="0" aria-label="Tambah">+</i></div>`;
-        const right = r.w ? `<div class="q"><span class="lock">WAJIB</span><b>${on && pb ? rm(pb.jual * qtyOf(r)) : ""}</b></div>` : on ? qty : `<div class="q"><i class="p" data-a="tog" data-k="${esc(r.key)}" role="button" tabindex="0" aria-label="Tambah ${esc(r.nama)}">+</i></div>`;
-        h += `<div class="it"><div class="th">${emo(r.nama)}</div><div class="n">${esc(r.nama)}<small>${sub}</small>${sz}</div>${right}</div>`;
+        const mn = r.min, q0 = qtyOf(r);
+        const qty = `<div class="q"><i class="${r.w && q0 <= mn ? "dim" : ""}" data-a="q-" data-k="${esc(r.key)}" role="button" tabindex="0" aria-label="Kurang" ${r.w && q0 <= mn ? 'aria-disabled="true"' : ""}>−</i>${q0}<i class="p" data-a="q+" data-k="${esc(r.key)}" role="button" tabindex="0" aria-label="Tambah">+</i></div>`;
+        const right = on ? `<div style="text-align:right">${qty}${pb ? `<b style="display:block;margin-top:4px;font-size:12.5px">${rm(pb.jual * q0)}</b>` : ""}</div>` : `<div class="q"><i class="p" data-a="tog" data-k="${esc(r.key)}" role="button" tabindex="0" aria-label="Tambah ${esc(r.nama)}">+</i></div>`;
+        h += `<div class="it"><div class="th">${emo(r.nama)}</div><div class="n">${esc(r.nama)}${r.w ? ` <span class="lock">WAJIB${r.wb ? " · murid baharu" : ""}</span>` : ""}<small>${sub}${r.w && r.min > 1 ? ` · minima ${r.min}` : ""}</small>${sz}</div>${right}</div>`;
       });
     });
     if (F.err) h += `<div class="err" role="alert" style="margin-top:10px">${esc(F.err)}</div>`;
@@ -202,7 +203,7 @@ const KP_LOGO = "https://lh3.googleusercontent.com/d/1JFlMpX8nCN4ZKW9SRiNdtFT-UC
   function bayarView() {
     let h = HDR("Pembayaran", "Muat naik bukti pembayaran tempahan koperasi.", true);
     h += `<div class="card pad"><div class="step"><i>1</i><h2>Cari tempahan</h2></div>
-      <label class="fld"><span class="lbl">No. Invoice (cth. T-00012) atau No. Kad Pengenalan murid</span><input data-i="bq" data-enter="semak" autocomplete="off" value="${esc(F.bq)}" placeholder="T-00012 atau 110203040506"></label>
+      <label class="fld"><span class="lbl">No. Invoice (cth. T-K7M2QX9) atau No. Kad Pengenalan murid</span><input data-i="bq" data-enter="semak" autocomplete="off" value="${esc(F.bq)}" placeholder="T-00012 atau 110203040506"></label>
       <div style="margin-top:10px"><button class="btn cta" data-a="semak" ${F.bbusy ? "disabled" : ""}>${F.bbusy ? "Mencari…" : "Semak tempahan"}</button></div>
       ${F.berr ? `<div class="err" role="alert" style="margin-top:10px">${esc(F.berr)}</div>` : ""}</div>`;
     if (F.bres) F.bres.forEach((t) => {
@@ -222,7 +223,7 @@ const KP_LOGO = "https://lh3.googleusercontent.com/d/1JFlMpX8nCN4ZKW9SRiNdtFT-UC
   function resitView() {
     let h = HDR("Resit", "Muat turun resit selepas urusan di koperasi selesai.", true);
     h += `<div class="card pad"><div class="step"><i>1</i><h2>Cari tempahan</h2></div>
-      <label class="fld"><span class="lbl">No. Invoice (cth. T-00012) atau No. Kad Pengenalan murid</span><input data-i="rq" data-enter="semakResit" autocomplete="off" value="${esc(F.rq)}" placeholder="T-00012 atau 110203040506"></label>
+      <label class="fld"><span class="lbl">No. Invoice (cth. T-K7M2QX9) atau No. Kad Pengenalan murid</span><input data-i="rq" data-enter="semakResit" autocomplete="off" value="${esc(F.rq)}" placeholder="T-00012 atau 110203040506"></label>
       <div style="margin-top:10px"><button class="btn cta" data-a="semakResit" ${F.rbusy ? "disabled" : ""}>${F.rbusy ? "Mencari…" : "Semak resit"}</button></div>
       ${F.rerr ? `<div class="err" role="alert" style="margin-top:10px">${esc(F.rerr)}</div>` : ""}</div>`;
     if (F.rres) F.rres.forEach((t) => {
@@ -353,7 +354,7 @@ const KP_LOGO = "https://lh3.googleusercontent.com/d/1JFlMpX8nCN4ZKW9SRiNdtFT-UC
     jt: (t) => { F.jtManual = t.dataset.k; reset(); draw(); },
     tog: (t) => { const k = t.dataset.k, r = rows().find((x) => x.key === k); if (r) F.sel[k] = !isOn(r); draw(); },
     "q+": (t) => { const k = t.dataset.k, r = rows().find((x) => x.key === k); if (r) F.qty[k] = Math.min(30, qtyOf(r) + 1); draw(); },
-    "q-": (t) => { const k = t.dataset.k, r = rows().find((x) => x.key === k); if (r) F.qty[k] = Math.max(1, qtyOf(r) - 1); draw(); },
+    "q-": (t) => { const k = t.dataset.k, r = rows().find((x) => x.key === k); if (r) { if (!r.w && qtyOf(r) <= 1) F.sel[k] = false; else F.qty[k] = Math.max(r.min, qtyOf(r) - 1); } draw(); },
     baru: () => { F.done = null; F.cash = false; F.view = "tempah"; F.step = 1; F.mi = ""; F.kelas = ""; F.baru = { nama: "", kp: "" }; reset(); syncTing(); draw(); window.scrollTo(0, 0); },
     cetak: () => { const p = $("#print"); p.innerHTML = billHtml(F.done); p.hidden = false; setTimeout(() => { window.print(); p.hidden = true; }, 60); },
     hantar: async () => {

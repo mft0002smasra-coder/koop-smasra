@@ -49,7 +49,7 @@ KP.data = (function () {
   async function resitList(dari, hingga, nama) {
     const [jr, ji] = await Promise.all([gv("KP_Jualan"), gv("KP_JualanItem")]), items = {};
     ji.forEach((x) => { (items[x.NO] = items[x.NO] || []).push({ kod: s(x.KOD), nama: s(x.NAMA), kategori: s(x.KATEGORI), qty: n(x.QTY), harga: n(x.HARGA), kos: n(x.KOS), jumlah: r2(n(x.HARGA) * n(x.QTY)) }); });
-    return jr.filter((x) => s(x.NO)).filter((x) => { const d = s(x.TARIKH).slice(0, 10); return (!dari || d >= dari) && (!hingga || d <= hingga) && (!nama || x.JURUWANG === nama); }).map((x) => ({
+    return jr.filter((x) => s(x.NO)).filter((x) => { const d = s(x.TARIKH).slice(0, 10); return (!d || ((!dari || d >= dari) && (!hingga || d <= hingga))) && (!nama || x.JURUWANG === nama); }) /* tarikh kosong (gviz lajur campuran) tetap dipaparkan */.map((x) => ({
       no: s(x.NO), tarikh: s(x.TARIKH), juruwang: s(x.JURUWANG), kumpulan: s(x.KUMPULAN), tingkatan: n(x.TINGKATAN), murid: s(x.MURID), kelasMurid: s(x.KELAS_MURID), kaedah: s(x.KAEDAH),
       jumlah: n(x.JUMLAH), tunai: n(x.TUNAI), baki: n(x.BAKI), qr: s(x.KAEDAH) === "QR DuitNow" && !n(x.QR) ? n(x.JUMLAH) : n(x.QR), tempahan: s(x.TEMPAHAN), status: s(x.STATUS), dibatalOleh: s(x.DIBATAL_OLEH), sebabBatal: s(x.SEBAB_BATAL), items: items[x.NO] || [] }));
   }

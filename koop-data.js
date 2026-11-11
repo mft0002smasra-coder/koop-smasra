@@ -21,7 +21,8 @@ KP.data = (function () {
       if (!rows.length) return [];
       cols = (rows[0].c || []).map((c) => String((c && c.v) || "").trim()); rows = rows.slice(1);
     }
-    return rows.map((r) => { const o = {}; cols.forEach((k, i) => { const c = r.c && r.c[i]; o[k] = c && c.v != null ? c.v : ""; }); return o; });
+    const dt = (v) => { const m = typeof v === "string" && v.match(/^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?/); if (!m) return v; const p = (x, l) => String(x || 0).padStart(l || 2, "0"); return `${m[1]}-${p(+m[2] + 1)}-${p(m[3])} ${p(m[4])}:${p(m[5])}:${p(m[6])}`; }; // tarikh yang ditukar Sheets
+    return rows.map((r) => { const o = {}; cols.forEach((k, i) => { const c = r.c && r.c[i]; o[k] = c && c.v != null ? dt(c.v) : ""; }); return o; });
   }
 
   async function tetapan() {

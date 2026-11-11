@@ -237,9 +237,9 @@
   KP.inp.tunai = (t) => { J.tunai = t.value; jBayarState(); };
   KP.act["j-bayar"] = async (t) => {
     const items = Object.keys(J.cart).map((k) => ({ kod: k, qty: J.cart[k] }));
-    t.disabled = true;
+    t.disabled = true; t.textContent = "Memproses…";
     const j = await KP.call("jual", { items, kumpulan: J.mode === "terus" ? "Terus" : J.grp, tingkatan: J.mode === "terus" ? 0 : J.ting, kaedah: J.tmp ? "Tunai" : J.kaedah, qr: J.tmp ? jQr() : 0, tunai: parseFloat(J.tunai) || 0, tempahan: J.tmp ? J.tmp.no : "", murid: J.murid ? { nama: J.murid.nama, kelas: J.murid.kelas } : null });
-    if (!j) { t.disabled = false; return; }
+    if (!j) { t.disabled = false; t.textContent = "Bayar"; return; }
     const r = j.resit; r.murid = J.murid ? J.murid.nama : ""; r.kelasMurid = J.murid ? J.murid.kelas : "";
     jReset(); KP.lastResit = r;
     KP.modal(`<h2 style="margin-bottom:10px">Jualan berjaya</h2>${resitHtml(r)}<div class="sp" style="margin-top:12px"><button class="btn line" data-a="tutup">Tutup</button><button class="btn cta" data-a="cetak-baru">Cetak resit</button></div>`);

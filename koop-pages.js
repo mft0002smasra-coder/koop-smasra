@@ -31,7 +31,7 @@
   /* ================= RESIT ================= */
   function resitHtml(r) {
     const nm = (KP.S.tetapan.resit || {}).nama || "Koperasi";
-    return `<div class="resit"><div style="text-align:center"><b>${esc(nm)}</b><br>${esc(r.no)}<br>${esc(r.tarikh)}</div><hr>
+    return `<div class="resit"><div style="text-align:center"><b>${esc(nm).replace(/ (PEKAN )/i, "<br>$1")}</b><br>${esc(r.no)}<br>${esc(r.tarikh)}</div><hr>
       <div>Juruwang: ${esc(r.juruwang)}</div>${r.murid ? `<div>Murid: ${esc(r.murid)}${r.kelasMurid ? " (" + esc(r.kelasMurid) + ")" : ""}</div>` : ""}<div>Pembeli: ${esc(r.kumpulan)}${r.tingkatan ? " · T" + r.tingkatan : ""}</div><hr>
       ${(r.items || []).map((i) => `<div class="l"><span>${esc(i.nama)}<br>&nbsp;${i.qty} x ${Number(i.harga).toFixed(2)}</span><span>${Number(i.jumlah != null ? i.jumlah : i.harga * i.qty).toFixed(2)}</span></div>`).join("")}<hr>
       <div class="l"><b>JUMLAH</b><b>${rm(r.jumlah)}</b></div>${r.qr > 0 && r.kaedah !== "QR DuitNow" ? `<div class="l"><span>Bayaran QR (bukti)</span><span>${rm(r.qr)}</span></div><div class="l"><span>Tunai diterima</span><span>${rm(r.tunai)}</span></div>` : `<div class="l"><span>${esc(r.kaedah)}</span><span>${rm(r.kaedah === "QR DuitNow" ? r.jumlah : r.tunai)}</span></div>`}<div class="l"><span>Baki</span><span>${rm(r.baki)}</span></div>${r.tempahan ? `<div class="l"><span>Rujukan tempahan</span><span>${esc(r.tempahan)}</span></div>` : ""}
@@ -256,7 +256,7 @@
     const nm = (KP.S.tetapan.resit || {}).nama || "Koperasi";
     let img = ""; try { const q = qrcode(0, "M"); q.addData(t.no); q.make(); img = `<img alt="QR ${esc(t.no)}" src="${q.createDataURL(5, 2)}" style="width:150px;height:150px;image-rendering:pixelated">`; } catch (e) { img = `<div class="muted small">QR tidak dapat dijana</div>`; }
     const rows = t.items.map((i) => { const b = D.barang.find((x) => x.kod === i.kod); return { nama: (b ? (b.varian || b.nama) : i.kod) + (i.saiz ? " (saiz " + i.saiz + ")" : ""), qty: i.qty, harga: b ? b.jual : 0 }; });
-    return `<div class="resit"><div style="text-align:center"><b>${esc(nm)}</b><br>BILL TEMPAHAN<br><b style="font-size:16px">${esc(t.no)}</b><br>${esc(t.tarikh)}</div><hr>
+    return `<div class="resit"><div style="text-align:center"><b>${esc(nm).replace(/ (PEKAN )/i, "<br>$1")}</b><br>BILL TEMPAHAN<br><b style="font-size:16px">${esc(t.no)}</b><br>${esc(t.tarikh)}</div><hr>
       ${t.murid ? `<div>Murid: ${esc(t.murid)}${t.kelasMurid ? " (" + esc(t.kelasMurid) + ")" : ""}</div>` : ""}<div>Pembeli: ${esc(t.kumpulan)} · T${t.tingkatan}</div><hr>
       ${rows.map((r) => `<div class="l"><span>${esc(r.nama)}<br>&nbsp;${r.qty} x ${Number(r.harga).toFixed(2)}</span><span>${(r.qty * r.harga).toFixed(2)}</span></div>`).join("")}<hr>
       <div class="l"><b>JUMLAH</b><b>${rm(t.jumlah)}</b></div><hr><div style="text-align:center">${img}<br>Tunjuk QR ini di kaunter koperasi</div></div>`;

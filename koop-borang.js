@@ -234,13 +234,14 @@ const KP_LOGO = "https://lh3.googleusercontent.com/d/1JFlMpX8nCN4ZKW9SRiNdtFT-UC
     });
     return h;
   }
+  // Nama koperasi: pecah baris sebelum "PEKAN" (atau ikut lebar), nama sekolah tidak dipaparkan
+  const namaBaris = (nm, d, lebar) => { nm = A(nm || "Koperasi SMA (JAIM) Al-Asyraf"); const i = nm.toUpperCase().indexOf(" PEKAN "); const b = i > 0 ? [nm.slice(0, i).trim(), nm.slice(i).trim()] : [nm]; return b.flatMap((x) => d.splitTextToSize(x, lebar)); };
   function buatResitPdf(r, t) {
     if (!window.jspdf) { alert("Pustaka PDF tidak dapat dimuatkan."); return null; }
     const d = new window.jspdf.jsPDF({ unit: "mm", format: "a5" }), W = 148, M = 12; let y = 16;
     d.setFont("helvetica", "bold"); d.setFontSize(14); d.text("RESIT RASMI", W / 2, y, { align: "center" });
-    y += 6; d.setFontSize(10); d.text(A(r.nama || F.resit.nama || "Koperasi SMA (JAIM) Al-Asyraf"), W / 2, y, { align: "center" });
-    y += 5; d.setFont("helvetica", "normal"); d.text("SM Arab (JAIM) Al-Asyraf", W / 2, y, { align: "center" });
-    y += 8; d.setFontSize(10);
+    y += 6; d.setFontSize(10); namaBaris(r.nama || F.resit.nama, d, W - 2 * M).forEach((ln, i) => { d.text(ln, W / 2, y + i * 5, { align: "center" }); y += i ? 5 : 0; });
+    d.setFont("helvetica", "normal"); y += 8; d.setFontSize(10);
     [["No. Resit", r.no], ["Tarikh", r.tarikh], ["Rujukan tempahan", t.no], ["Murid", t.murid + (t.kelas ? " (" + t.kelas + ")" : "")], ["Juruwang", r.juruwang]].forEach(([k, v]) => { d.setFont("helvetica", "bold"); d.text(k, M, y); d.setFont("helvetica", "normal"); d.text(A(v), M + 38, y); y += 5.5; });
     y += 2; d.setDrawColor(150); d.line(M, y, W - M, y); y += 5; d.setFont("helvetica", "bold"); d.text("Barang", M, y); d.text("Qty", 90, y, { align: "right" }); d.text("Harga", 110, y, { align: "right" }); d.text("Jumlah", W - M, y, { align: "right" }); y += 5; d.setFont("helvetica", "normal");
     r.items.forEach((i) => { if (y > 170) { d.addPage(); y = 16; } const ln = d.splitTextToSize(A(i.nama), 66); d.text(ln, M, y); d.text(String(i.qty), 90, y, { align: "right" }); d.text(i.harga.toFixed(2), 110, y, { align: "right" }); d.text(i.jumlah.toFixed(2), W - M, y, { align: "right" }); y += 5 * ln.length; });
@@ -262,7 +263,7 @@ const KP_LOGO = "https://lh3.googleusercontent.com/d/1JFlMpX8nCN4ZKW9SRiNdtFT-UC
     if (!window.jspdf) { alert("Pustaka PDF tidak dapat dimuatkan. Gunakan butang Cetak."); return null; }
     const d = new window.jspdf.jsPDF({ unit: "mm", format: "a4" }), W = 210, M = 15; let y = 18;
     d.setFillColor(109, 40, 217); d.rect(0, 0, W, 30, "F"); d.setTextColor(255); d.setFont("helvetica", "bold"); d.setFontSize(17); d.text("INVOIS TEMPAHAN", M, 14);
-    d.setFontSize(10); d.setFont("helvetica", "normal"); d.text(A(F.resit.nama || "Koperasi SMA (JAIM) Al-Asyraf"), M, 21); d.text("SM Arab (JAIM) Al-Asyraf", M, 26);
+    d.setFontSize(10); d.setFont("helvetica", "normal"); namaBaris(F.resit.nama, d, 110).forEach((ln, i) => d.text(ln, M, 21 + i * 5));
     d.setFont("helvetica", "bold"); d.setFontSize(15); d.text(A(t.no), W - M, 14, { align: "right" }); d.setFont("helvetica", "normal"); d.setFontSize(10); d.text(A(t.tarikh), W - M, 21, { align: "right" });
     d.setTextColor(30); y = 42; d.setFontSize(11); d.setFont("helvetica", "bold"); d.text("Murid", M, y); d.setFont("helvetica", "normal"); d.text(A(t.murid) + (t.kelas ? " (" + A(t.kelas) + ")" : ""), M + 28, y);
     y += 6; d.setFont("helvetica", "bold"); d.text("Set", M, y); d.setFont("helvetica", "normal"); d.text("Tahun " + (t.tahun || "") + " - Tingkatan " + t.ting + " - " + A(t.grp), M + 28, y);

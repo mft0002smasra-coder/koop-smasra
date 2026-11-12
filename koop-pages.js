@@ -103,11 +103,33 @@
   const findCode = (code) => { code = String(code || "").trim(); const lc = code.toLowerCase(); return D.barang.find((b) => (b.barcode && b.barcode === code) || b.kod.toLowerCase() === lc); };
 
   /* ================= JUALAN (POS) ================= */
+  /* ---- Senarai tempahan dalam Jualan Tempahan: cari ikut no. invois / nama / kod barang, salin no., muat ke troli ---- */
+  const JT = { list: [], q: "", f: "Belum selesai", loaded: false, busy: false, err: "" };
+  const jtBayar = (t) => t.status === "Batal" ? ["Dibatalkan", "gr"] : t.status === "Selesai" ? [t.amaunQr > 0 ? "Selesai · QR " + rm(t.amaunQr) : "Selesai · Tunai", "ok"] : t.bayar === "Disahkan" ? ["Bayaran disahkan", "ok"] : t.adaBukti ? ["Bukti diterima (belum disemak)", "warn"] : ["Belum bayar", "gr"];
+  const jtFilter = () => {
+    const tk = JT.q.toLowerCase().split(/\s+/).filter(Boolean);
+    return JT.list.filter((t) => (JT.f === "Semua" || (JT.f === "Belum selesai" ? t.status === "Baharu" : JT.f === "Sudah bayar" ? t.status === "Baharu" && t.bayar === "Disahkan" : JT.f === "Ada bukti" ? t.status === "Baharu" && t.adaBukti : t.status === JT.f))
+      && (!tk.length || (h => tk.every((w) => h.includes(w)))((t.no + " " + t.murid + " " + t.kelasMurid + " " + t.items.map((i) => (i.kod || "") + " " + (i.nama || "")).join(" ")).toLowerCase())));
+  };
+  const jtRows = () => {
+    const L = jtFilter();
+    if (JT.busy && !JT.loaded) return `<div class="muted small" style="padding:14px 16px">Memuatkan senarai…</div>`;
+    if (JT.err) return `<div class="muted small" style="padding:14px 16px;color:var(--bad,#b91c1c)">${esc(JT.err)}</div>`;
+    if (!L.length) return `<div class="muted small" style="padding:14px 16px">Tiada tempahan sepadan.</div>`;
+    return L.slice(0, 60).map((t) => { const [bl, bk] = jtBayar(t); return `<div class="jt-row" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 16px;border-top:1px solid var(--ln2)">
+      <div style="min-width:0;flex:1 1 200px"><div style="display:flex;align-items:center;gap:6px"><b style="font-family:monospace;font-size:15px;letter-spacing:.3px" id="jt-no-${esc(t.no)}">${esc(t.no)}</b><button class="btn line sm" data-a="jt-copy" data-k="${esc(t.no)}" title="Salin no. invois" aria-label="Salin no. invois ${esc(t.no)}" style="padding:2px 8px">Salin</button></div>
+        <div style="font-size:13px;margin-top:2px"><b>${esc(t.murid || "(murid baharu)")}</b> <span class="muted small">${esc(t.kelasMurid || "")}${t.kelasMurid ? " · " : ""}T${t.tingkatan} ${esc(t.kumpulan)}</span></div></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><b>${rm(t.jumlah)}</b>${pill(bl, bk)}${t.status !== "Baharu" ? pill(t.status, "gr") : ""}${t.status === "Baharu" ? `<button class="btn sm" data-a="jt-muat" data-k="${esc(t.no)}">Muat</button>` : ""}</div></div>`; }).join("") + (L.length > 60 ? `<div class="muted small" style="padding:10px 16px">Memaparkan 60 daripada ${L.length}. Perincikan carian untuk menyempitkan.</div>` : "");
+  };
+  const jtCard = () => `<div class="card" style="padding:14px 0 4px;margin-top:12px"><div style="padding:0 16px 10px;display:flex;flex-direction:column;gap:10px"><div class="sp"><h2>Senarai tempahan</h2><button class="btn line sm" data-a="jt-muat-semula">↻ Muat semula</button></div>
+      <input type="search" data-i="jt-q" value="${esc(JT.q)}" placeholder="Cari no. invois, nama murid (sebahagian pun boleh) atau kod barang" aria-label="Cari tempahan" autocomplete="off">
+      ${chips(["Belum selesai", "Sudah bayar", "Ada bukti", "Selesai", "Semua"], JT.f, "jt-f")}</div><div id="jt-rows">${jtRows()}</div></div>`;
+  async function jtLoad() { JT.busy = true; JT.err = ""; const j = await KP.call("getTempahan"); JT.busy = false; if (j) { JT.list = j.tempahan; JT.loaded = true; } else JT.err = "Gagal memuatkan senarai tempahan."; const e = $("#jt-rows"); if (e) e.innerHTML = jtRows(); }
   const J = { mode: "", sub: "", cat: "", grp: "Luar asrama", ting: 1, cart: {}, kaedah: "Tunai", tunai: "", murid: null, tmp: null, bukti: null, qrMode: "", qrAmt: "", recent: [], last: "", lastAt: 0 };
   const jOk = (b) => (J.mode === "tempahan" ? b.set && (J.grp === "Asrama" ? b.as : b.lr) && b.t[J.ting - 1] : true); // Jualan Terus: SEMUA barang koperasi; Tempahan: ikut SET (kumpulan & tingkatan)
   const jTotal = () => D.barang.reduce((s, b) => s + (J.cart[b.kod] ? b.jual * J.cart[b.kod] : 0), 0);
   function jPrune() { Object.keys(J.cart).forEach((k) => { const b = D.barang.find((x) => x.kod === k); if (!b || !jOk(b)) delete J.cart[k]; }); }
-  function jReset() { J.mode = ""; J.sub = ""; J.cat = ""; J.cart = {}; J.tunai = ""; J.murid = null; J.tmp = null; J.recent = []; jClearBukti(); KP.scan.stop(); }
+  function jReset() { JT.loaded = false; J.mode = ""; J.sub = ""; J.cat = ""; J.cart = {}; J.tunai = ""; J.murid = null; J.tmp = null; J.recent = []; jClearBukti(); KP.scan.stop(); }
   function jClearBukti() { if (J.bukti && J.bukti.url) URL.revokeObjectURL(J.bukti.url); J.bukti = null; J.qrMode = ""; J.qrAmt = ""; }
   const r2 = (x) => Math.round(x * 100) / 100;
   const jQr = () => { if (!(J.tmp && J.tmp.adaBukti)) return 0; const tot = jTotal(); return J.qrMode === "sama" ? tot : J.qrMode === "beza" ? Math.min(tot, Math.max(0, parseFloat(J.qrAmt) || 0)) : 0; };
@@ -161,7 +183,8 @@
     if (!J.mode) return `<div class="bigs">${big("j-mode", "Jualan Terus", "Imbas barcode atau pilih barang terus daripada kategori.", "terus", "cta").replace('data-a="j-mode"', 'data-a="j-mode" data-k="terus"')}${big("j-mode", "Jualan Tempahan", "Imbas QR / barcode pada bill tempahan, senarai barang terus masuk troli.", "tempahan").replace('data-a="j-mode"', 'data-a="j-mode" data-k="tempahan"')}</div>`;
     if (J.mode === "tempahan") {
       if (J.tmp) return `${back("Jualan Tempahan")}<div class="card pad" style="display:flex;flex-direction:column;gap:8px"><div class="sp"><h2>Tempahan ${esc(J.tmp.no)}</h2>${pill("Dimuatkan ke troli", "ok")}</div><div class="muted small">${esc(J.tmp.tarikh.slice(0, 16))} · oleh ${esc(J.tmp.oleh)}${J.tmp.catatan ? " · " + esc(J.tmp.catatan) : ""}</div><div class="sp"><span>Bayaran: ${pill(J.tmp.bayar, J.tmp.bayar === "Disahkan" ? "ok" : J.tmp.bayar === "Belum" ? "gr" : "warn")}</span><span style="display:flex;gap:8px">${J.tmp.adaBukti ? `<button class="btn line sm" data-a="j-bukti">Besarkan bukti</button>` : ""}</span></div>${J.tmp.adaBukti ? (J.bukti ? (/pdf/.test(J.bukti.mime) ? `<iframe src="${J.bukti.url}" title="Bukti bayaran" style="width:100%;height:340px;border:1px solid var(--ln);border-radius:10px"></iframe>` : `<img src="${J.bukti.url}" alt="Bukti bayaran" data-a="j-bukti" style="max-width:100%;max-height:340px;object-fit:contain;border:1px solid var(--ln);border-radius:10px;cursor:zoom-in;align-self:flex-start">`) : `<div class="muted small">Memuatkan bukti pembayaran…</div>`) : `<div class="note small">Tiada bukti pembayaran QR. Terima bayaran tunai di kaunter.</div>`}<div>Semak troli di sebelah, kemudian bayar. Barang yang habis stok tidak dimasukkan.</div><div><button class="btn line sm" data-a="j-tmp-lain">Imbas tempahan lain</button></div></div>`;
-      return `${back("Jualan Tempahan")}${scanCard("Imbas bill tempahan", "Atau taip no. tempahan, cth. T-K7M2QX9")}`;
+      if (!JT.loaded && !JT.busy) jtLoad();
+      return `${back("Jualan Tempahan")}${scanCard("Imbas bill tempahan", "Atau taip no. tempahan, cth. T-K7M2QX9")}${jtCard()}`;
     }
     if (!J.sub) return `${back("Jualan Terus")}<div class="bigs">${big("j-sub", "Scan barcode", "Imbas barcode barang — terus masuk troli.", "scan", "cta").replace('data-a="j-sub"', 'data-a="j-sub" data-k="scan"')}${big("j-sub", "Pilih barang", "Pilih kategori, kemudian pilih barang.", "pilih").replace('data-a="j-sub"', 'data-a="j-sub" data-k="pilih"')}</div>`;
     if (J.sub === "scan") return `${back("Jualan Terus · Scan barcode")}${scanCard("Imbas barcode barang", "Atau taip kod / barcode barang")}`;
@@ -215,10 +238,15 @@
       }
     }
   }
-  KP.act["j-mode"] = (t) => { J.mode = t.dataset.k; J.sub = ""; J.cat = ""; J.cart = {}; J.tmp = null; KP.rerender(); };
+  KP.inp["jt-q"] = (t) => { JT.q = t.value; const e = $("#jt-rows"); if (e) e.innerHTML = jtRows(); };
+  KP.act["jt-f"] = (t) => { JT.f = t.dataset.k; KP.rerender(); };
+  KP.act["jt-muat-semula"] = () => { JT.loaded = false; jtLoad(); };
+  KP.act["jt-muat"] = (t) => jLoadTmp(t.dataset.k);
+  KP.act["jt-copy"] = async (t) => { const no = t.dataset.k; let ok = false; try { await navigator.clipboard.writeText(no); ok = true; } catch (e) { try { const a = document.createElement("textarea"); a.value = no; a.style.position = "fixed"; a.style.opacity = "0"; document.body.appendChild(a); a.select(); ok = document.execCommand("copy"); a.remove(); } catch (e2) {} } KP.toast(ok ? "No. invois disalin: " + no : "Tidak dapat menyalin. Tekan lama pada no. untuk salin.", !ok); };
+  KP.act["j-mode"] = (t) => { if (t.dataset.k === "tempahan") JT.loaded = false; J.mode = t.dataset.k; J.sub = ""; J.cat = ""; J.cart = {}; J.tmp = null; KP.rerender(); };
   KP.act["j-sub"] = (t) => { J.sub = t.dataset.k; J.cat = ""; KP.rerender(); };
   KP.act["j-cat"] = (t) => { J.cat = t.dataset.k; KP.rerender(); };
-  KP.act["j-back"] = () => { if (J.mode === "terus" && J.sub === "pilih" && J.cat) J.cat = ""; else if (J.mode === "terus" && J.sub) J.sub = ""; else { const had = Object.keys(J.cart).length; if (had && !confirm("Troli akan dikosongkan. Teruskan?")) return; jReset(); } KP.rerender(); };
+  KP.act["j-back"] = () => { JT.loaded = false; if (J.mode === "terus" && J.sub === "pilih" && J.cat) J.cat = ""; else if (J.mode === "terus" && J.sub) J.sub = ""; else { const had = Object.keys(J.cart).length; if (had && !confirm("Troli akan dikosongkan. Teruskan?")) return; jReset(); } KP.rerender(); };
   KP.act["j-bukti"] = async () => {
     const j = await KP.call("lihatBukti", { no: J.tmp.no }); if (!j) return;
     const bin = atob(j.data), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
@@ -227,7 +255,7 @@
   };
   KP.act["j-qrm"] = (t) => { J.qrMode = t.dataset.k; if (J.qrMode !== "beza") J.qrAmt = ""; J.tunai = ""; jCartRefresh(); };
   KP.inp.qramt = (t) => { if (J.qrAmt === t.value) return; J.qrAmt = t.value; J.tunai = ""; const e = $("#j-paydue"); if (e) e.innerHTML = jDueHtml(); jBayarState(); };
-  KP.act["j-tmp-lain"] = () => { jClearBukti(); J.tmp = null; J.cart = {}; KP.rerender(); };
+  KP.act["j-tmp-lain"] = () => { JT.loaded = false; jClearBukti(); J.tmp = null; J.cart = {}; KP.rerender(); };
   KP.act["j-codego"] = () => { const i = $("#j-code"); if (!i) return; const v = i.value; i.value = ""; J.last = ""; jOnCode(v); i.focus(); };
   KP.act["j-kae"] = (t) => { J.kaedah = t.dataset.k; jCartRefresh(); };
   KP.act["j-add"] = (t) => { const b = D.barang.find((x) => x.kod === t.dataset.k); if (b) jAdd(b, false); };

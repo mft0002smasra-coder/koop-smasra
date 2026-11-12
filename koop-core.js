@@ -98,10 +98,11 @@ const KP = {
     const pg = KP.pages[key], first = KP.cur !== key || !KP.$("#pg");
     KP.cur = key;
     if (first) {
-      root.innerHTML = `<div class="app"><div class="backdrop" id="bd" data-a="menu" hidden></div><aside class="side" id="side"><div class="brand">${KP.logo()}<div><b>Koperasi SMA (JAIM) Al-Asyraf</b><small>Sistem Pengurusan Koperasi</small></div></div>
+      root.innerHTML = `<div class="app"><div class="backdrop" id="bd" data-a="menu" hidden></div><div id="edge" aria-hidden="true"></div><aside class="side" id="side"><div class="brand">${KP.logo()}<div><b>Koperasi SMA (JAIM) Al-Asyraf</b><small>Sistem Pengurusan Koperasi</small></div></div>
         ${ok.map((n) => `<a class="nav ${n[0] === key ? "on" : ""}" href="#/${n[0]}" data-a="navgo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${n[2]}"/></svg>${n[1]}</a>`).join("")}
         <div class="who"><b>${KP.esc(u.nama)}</b><small>${u.admin ? "Admin App" : "Guru Koop"}</small><button class="btn line sm" data-a="pin">Tukar PIN</button><button class="btn line sm" data-a="keluar">Log keluar</button></div></aside>
         <div class="main"><div class="top"><div style="display:flex;align-items:center;gap:10px"><button class="btn line sm menu" data-a="menu" aria-label="Buka / tutup menu" title="Menu">☰ Menu</button><h1 id="ttl"></h1></div><span class="pill p-info">${u.admin ? "Admin App" : "Guru Koop"}</span></div><div class="page" id="pg"></div></div></div>`;
+      KP.sideInit();
     } else {
       document.querySelectorAll(".nav").forEach((a, i) => a.classList.toggle("on", ok[i] && ok[i][0] === key));
     }
@@ -127,7 +128,28 @@ const KP = {
     pgEl.innerHTML = pg.view();
     if (pg.after) pg.after();
   },
-  side(open) { const sd = KP.$("#side"), bd = KP.$("#bd"); if (!sd) return; const o = open === undefined ? !sd.classList.contains("open") : open; sd.classList.toggle("open", o); if (bd) bd.hidden = !o; },
+  side(open) {
+    const sd = KP.$("#side"), bd = KP.$("#bd"); if (!sd) return; const o = open === undefined ? !sd.classList.contains("open") : open;
+    sd.classList.toggle("open", o); if (bd) bd.hidden = !o; KP.sideTimer(o ? 9000 : 0);
+  },
+  // menu tepi: tutup sendiri apabila tidak digunakan; buka dengan menyentuh/menuding tepi kiri skrin atau leret dari tepi kiri
+  sideTimer(ms) { clearTimeout(KP._st); if (ms) KP._st = setTimeout(() => KP.side(false), ms); },
+  sideInit() {
+    if (KP._sideInit) return; KP._sideInit = true;
+    const sd = () => KP.$("#side"), eg = () => KP.$("#edge");
+    document.addEventListener("pointerover", (e) => { if (e.pointerType === "mouse" && e.target.id === "edge") KP.side(true); });
+    document.addEventListener("click", (e) => { if (e.target.id === "edge") KP.side(true); });
+    document.addEventListener("pointermove", (e) => { const s = sd(); if (s && s.classList.contains("open")) KP.sideTimer(e.pointerType === "mouse" && !s.contains(e.target) ? 1200 : 9000); });
+    document.addEventListener("pointerdown", (e) => { const s = sd(); if (s && s.classList.contains("open") && s.contains(e.target)) KP.sideTimer(9000); });
+    let x0 = null, y0 = 0;
+    document.addEventListener("touchstart", (e) => { const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; }, { passive: true });
+    document.addEventListener("touchmove", (e) => {
+      if (x0 === null) return; const t = e.touches[0], dx = t.clientX - x0, dy = Math.abs(t.clientY - y0), s = sd(), open = s && s.classList.contains("open");
+      if (!open && x0 < 28 && dx > 50 && dy < 40) { KP.side(true); x0 = null; }
+      else if (open && dx < -60 && dy < 50) { KP.side(false); x0 = null; }
+    }, { passive: true });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") KP.side(false); });
+  },
   rerender() { const pg = KP.pages[KP.cur], el = KP.$("#pg"); if (pg && el) { const y = window.scrollY; el.innerHTML = pg.view(); if (pg.after) pg.after(); window.scrollTo(0, y); } },
 
   loginView() {

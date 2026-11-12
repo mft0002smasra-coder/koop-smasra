@@ -136,12 +136,9 @@ td input,td select{min-height:34px;padding:5px 8px}
 .tile .tb{align-self:flex-start}
 #j-reader{width:100%;max-width:520px;min-height:200px;margin:0 auto;border-radius:12px;overflow:hidden;background:#0F172A}
 .crumb{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-/* ===== Tab / paparan LANSKAP: menu tepi sentiasa kelihatan, POS dua lajur (barang kiri, troli kanan) ===== */
+/* ===== Tab / paparan LANSKAP: menu tepi tersembunyi sendiri (auto-hide), POS dua lajur (barang kiri, troli kanan) ===== */
 @media screen and (min-width:760px) and (orientation:landscape){
- .side{transform:none!important;box-shadow:none;width:208px;padding:12px 10px}
- .backdrop,.btn.menu{display:none!important}
- .main{margin-left:208px}
- .brand{padding-bottom:10px}
+ .side{width:230px}
  .nav{min-height:42px;padding:8px 10px}
  .page{padding:14px 18px 24px}
  .pos{flex-wrap:nowrap;align-items:stretch;gap:14px}
@@ -165,3 +162,7 @@ td input,td select{min-height:34px;padding:5px 8px}
  #print{position:absolute;left:0;top:0;width:80mm;border:0}
  .toast{display:none}
 }
+
+#edge{position:fixed;left:0;top:56px;bottom:0;width:18px;z-index:38}
+#edge::after{content:"";position:absolute;left:0;top:50%;width:5px;height:56px;margin-top:-28px;border-radius:0 6px 6px 0;background:var(--grad);opacity:.55}
+@media print{#edge{display:none}}

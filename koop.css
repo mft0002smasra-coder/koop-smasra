@@ -136,6 +136,29 @@ td input,td select{min-height:34px;padding:5px 8px}
 .tile .tb{align-self:flex-start}
 #j-reader{width:100%;max-width:520px;min-height:200px;margin:0 auto;border-radius:12px;overflow:hidden;background:#0F172A}
 .crumb{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+/* ===== Tab / paparan LANSKAP: menu tepi sentiasa kelihatan, POS dua lajur (barang kiri, troli kanan) ===== */
+@media screen and (min-width:760px) and (orientation:landscape){
+ .side{transform:none!important;box-shadow:none;width:208px;padding:12px 10px}
+ .backdrop,.btn.menu{display:none!important}
+ .main{margin-left:208px}
+ .brand{padding-bottom:10px}
+ .nav{min-height:42px;padding:8px 10px}
+ .page{padding:14px 18px 24px}
+ .pos{flex-wrap:nowrap;align-items:stretch;gap:14px}
+ .pos .prods{flex:1 1 0;min-width:0}
+ .pos .cart{flex:0 0 clamp(320px,34vw,400px);min-width:0;position:sticky;top:68px;align-self:flex-start;max-height:calc(100vh - 84px);overflow:auto}
+ .tiles{grid-template-columns:repeat(auto-fill,minmax(148px,1fr))}
+ .form{grid-template-columns:repeat(3,1fr)}
+ .tbl{overflow-x:auto}
+ .modal>.card{max-width:640px}
+}
+/* telefon lanskap (ketinggian rendah): padatkan */
+@media screen and (orientation:landscape) and (max-height:520px){
+ .top{height:46px}.nav{min-height:36px;padding:6px 10px;font-size:13px}.brand small{display:none}
+ .pos .cart{top:56px;max-height:calc(100vh - 68px)}
+ .tile{min-height:120px}.tile .pv{height:46px}
+}
+
 @media print{
  body *{visibility:hidden}
  #print,#print *{visibility:visible}

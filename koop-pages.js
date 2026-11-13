@@ -5,7 +5,9 @@
   const val = (id) => { const e = document.getElementById(id); return e ? e.value : ""; };
   const kats = () => KP.S.tetapan.kategori || [];
   const chips = (list, cur, act) => `<div class="chips">${list.map((k) => `<button class="ch ${k === cur ? "on" : ""}" data-a="${act}" data-k="${esc(k)}">${esc(k)}</button>`).join("")}</div>`;
-  const katOpts = (cur) => kats().concat(cur && !kats().includes(cur) ? [cur] : []).map((k) => `<option ${k === cur ? "selected" : ""}>${esc(k)}</option>`).join("");
+  // Senarai kategori: daripada Tetapan + kategori sedia ada pada barang + kategori lalai (supaya senarai tidak pernah kosong)
+  const katSemua = (cur) => { const o = []; ["Buku & Alat Tulis", "Pakaian", "Asrama", "Koperasi", "Lain-lain"].concat(kats(), (D.barang || []).map((b) => b.kategori), cur ? [cur] : []).forEach((k) => { k = String(k || "").trim(); if (k && !o.includes(k)) o.push(k); }); return o; };
+  const katOpts = (cur) => `<option value="" ${cur ? "" : "selected"}>— pilih kategori —</option>` + katSemua(cur).map((k) => `<option ${k === cur ? "selected" : ""}>${esc(k)}</option>`).join("") + `<option value="__baru">＋ Kategori baharu…</option>`;
   async function loadBarang(hanyaSet) {
     const j = await KP.call("getBarang", { hanyaSet: !!hanyaSet });
     if (!j) throw new Error("barang");
@@ -79,7 +81,7 @@
     async stop() { const q = KP.scan.inst; KP.scan.inst = null; if (q) { try { await q.stop(); } catch (e) {} try { q.clear(); } catch (e) {} } }
   };
   KP.beep = (ok) => { try { const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(), g = a.createGain(); o.frequency.value = ok ? 880 : 220; g.gain.value = 0.08; o.connect(g); g.connect(a.destination); o.start(); setTimeout(() => { o.stop(); a.close(); }, ok ? 90 : 250); } catch (e) {} };
-  KP.printHtml = (html) => { const p = $("#print"); p.innerHTML = html; p.hidden = false; setTimeout(() => { window.print(); p.hidden = true; }, 60); };
+  KP.printHtml = (html, lebar) => { const p = $("#print"); p.innerHTML = html; p.classList.toggle("wide", !!lebar); p.hidden = false; setTimeout(() => { window.print(); p.hidden = true; }, 60); };
   KP.mlist = null;
   const loadMurid = () => (KP.mlist ? Promise.resolve() : KP.call("senaraiMurid").then((j) => { if (j) KP.mlist = j.murid; }));
   const muridDd = (q, ddId, act) => {
@@ -400,7 +402,7 @@
       const c = { B: B.imp.filter((r) => r.st === "B").length, A: B.imp.filter((r) => r.st === "A").length, S: B.imp.filter((r) => r.st === "S").length };
       return `<div class="row" style="align-items:stretch"><div class="card pad grow" style="flex:1.3 1 560px;display:flex;flex-direction:column;gap:12px"><h2>Tambah barang secara manual</h2>
         <div class="form"><label class="fld span2"><span class="lbl">Nama barang</span><input id="m-nama"></label><label class="fld"><span class="lbl">Kod (auto jika kosong)</span><input id="m-kod"></label>
-        <label class="fld"><span class="lbl">Kategori</span><select id="m-kat">${katOpts("")}</select></label><label class="fld"><span class="lbl">Unit</span><input id="m-unit" value="Biji"></label><label class="fld"><span class="lbl">Stok awal</span><input id="m-stok" type="number" min="0" value="0"></label>
+        <label class="fld"><span class="lbl">Kategori</span><select id="m-kat" data-i="kat-baru">${katOpts("")}</select></label><label class="fld"><span class="lbl">Unit</span><input id="m-unit" value="Biji"></label><label class="fld"><span class="lbl">Stok awal</span><input id="m-stok" type="number" min="0" value="0"></label>
         <label class="fld"><span class="lbl">Harga kos (RM)</span><input id="m-kos" inputmode="decimal"></label><label class="fld"><span class="lbl">Harga jual (RM)</span><input id="m-jual" inputmode="decimal"></label><label class="fld"><span class="lbl">Stok minimum</span><input id="m-min" type="number" min="0" value="${(KP.S.tetapan.resit || {}).minLalai || 10}"></label></div>
         <div class="sp"><span class="muted small" style="max-width:360px">Barang baharu belum dijual sehingga ditetapkan di Inventori &amp; Akses (asrama / luar asrama, T1–T6).</span><button class="btn cta" data-a="b-simpan">Simpan barang</button></div></div>
         <div class="card pad grow" style="flex:1 1 420px;display:flex;flex-direction:column;gap:10px"><h2>Import daripada fail PDF</h2>
@@ -441,6 +443,7 @@
     KP.toast(`${j.baru} baharu, ${j.kemas} dikemas kini.`); B.imp = []; B.fname = ""; KP.draw(true);
   };
   KP.act["b-kat"] = (t) => { B.kat = t.dataset.k; KP.rerender(); };
+  KP.inp["kat-baru"] = (t) => { if (t.value !== "__baru") return; const n = (prompt("Nama kategori baharu:") || "").trim(); if (!n) { t.selectedIndex = 0; return; } let o = [...t.options].find((x) => x.value === n || x.text === n); if (!o) { o = new Option(n, n); t.add(o, t.options[t.options.length - 1]); } t.value = o.value; };
   KP.inp["b-q"] = (t) => { B.q = t.value; const p = t.selectionStart; KP.rerender(); const n = $('[data-i="b-q"]'); if (n) { n.focus(); n.setSelectionRange(p, p); } };
   KP.act["b-simpan"] = async () => {
     const j = await KP.call("saveBarang", { barang: { nama: val("m-nama"), kod: val("m-kod"), kategori: val("m-kat"), unit: val("m-unit"), stok: val("m-stok"), kos: val("m-kos"), jual: val("m-jual"), min: val("m-min") } });
@@ -448,7 +451,7 @@
   };
   KP.act["b-edit"] = (t) => {
     const b = D.barang.find((x) => x.kod === t.dataset.k);
-    KP.modal(`<h2>Edit ${esc(b.kod)}</h2><div class="form" style="margin-top:10px;grid-template-columns:1fr 1fr"><label class="fld span2"><span class="lbl">Nama</span><input id="e-nama" value="${esc(b.nama)}"></label><label class="fld"><span class="lbl">Kategori</span><select id="e-kat">${katOpts(b.kategori)}</select></label><label class="fld"><span class="lbl">Unit</span><input id="e-unit" value="${esc(b.unit)}"></label><label class="fld"><span class="lbl">Kos (RM)</span><input id="e-kos" value="${b.kos || 0}"></label><label class="fld"><span class="lbl">Jual (RM)</span><input id="e-jual" value="${b.jual}"></label><label class="fld"><span class="lbl">Stok minimum</span><input id="e-min" type="number" value="${b.min}"></label>
+    KP.modal(`<h2>Edit ${esc(b.kod)}</h2><div class="form" style="margin-top:10px;grid-template-columns:1fr 1fr"><label class="fld span2"><span class="lbl">Nama</span><input id="e-nama" value="${esc(b.nama)}"></label><label class="fld"><span class="lbl">Kategori</span><select id="e-kat" data-i="kat-baru">${katOpts(b.kategori)}</select></label><label class="fld"><span class="lbl">Unit</span><input id="e-unit" value="${esc(b.unit)}"></label><label class="fld"><span class="lbl">Kos (RM)</span><input id="e-kos" value="${b.kos || 0}"></label><label class="fld"><span class="lbl">Jual (RM)</span><input id="e-jual" value="${b.jual}"></label><label class="fld"><span class="lbl">Stok minimum</span><input id="e-min" type="number" value="${b.min}"></label>
         <label class="fld"><span class="lbl">Jantina</span><select id="e-jt"><option value="" ${b.jantina ? "" : "selected"}>Semua</option><option value="L" ${b.jantina === "L" ? "selected" : ""}>Lelaki (L)</option><option value="P" ${b.jantina === "P" ? "selected" : ""}>Perempuan (P)</option></select></label>
         <label class="fld"><span class="lbl">Nama kumpulan saiz (varian)</span><input id="e-varian" value="${esc(b.varian)}" placeholder="cth. Baju Prep"></label>
         <label class="fld span2"><span class="lbl">Saiz (asing dengan koma) — kosong jika tiada</span><input id="e-saiz" value="${esc(b.saiz)}" placeholder="cth. S,M,L,XL"></label>
@@ -535,6 +538,62 @@
   };
 
   /* ================= TETAPAN (Admin) ================= */
+  /* ================= LAPORAN TEMPAHAN MURID (dalam Tetapan) =================
+     Murid daripada DatabaseMurid dipadankan dengan KP_Tempahan (No. KP berhash, atau nama + kelas). Status:
+     Belum tempah · Belum bayar · Sudah bayar (belum settle) · Selesai (settle). */
+  const LT = { ting: "Semua", kelas: "Semua", st: "Semua", q: "", rows: [], loaded: false, busy: false, err: "" };
+  const LT_ST = ["Belum tempah", "Belum bayar", "Sudah bayar", "Selesai"];
+  const LT_KLS = { "Belum tempah": "bad", "Belum bayar": "warn", "Sudah bayar": "info", "Selesai": "ok" };
+  const LT_RANK = { "Belum tempah": 0, "Belum bayar": 1, "Sudah bayar": 2, "Selesai": 3 };
+  const ltSt = (t) => t.status === "Selesai" ? "Selesai" : t.bayar === "Disahkan" ? "Sudah bayar" : "Belum bayar";
+  const sha = async (kp) => { try { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("koopkp:" + kp)); return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join(""); } catch (e) { return ""; } };
+  const nk = (x) => String(x || "").toUpperCase().replace(/[^A-Z0-9]+/g, " ").trim();
+  async function ltLoad() {
+    LT.busy = true; LT.err = ""; KP.rerender();
+    try {
+      await loadMurid();
+      const j = await KP.call("getTempahan"); if (!j) throw new Error("tempahan");
+      const aktif = j.tempahan.filter((t) => t.status !== "Batal"), byH = {}, byN = {}, guna = new Set();
+      aktif.forEach((t) => { if (t.kph) (byH[t.kph] = byH[t.kph] || []).push(t); (byN[nk(t.murid) + "|" + nk(t.kelasMurid)] = byN[nk(t.murid) + "|" + nk(t.kelasMurid)] || []).push(t); });
+      const rows = [];
+      for (const m of KP.mlist || []) {
+        let L = []; if (m.kp) L = byH[await sha(m.kp)] || [];
+        if (!L.length) L = byN[nk(m.nama) + "|" + nk(m.kelas)] || [];
+        L.forEach((t) => guna.add(t.no));
+        const best = L.slice().sort((a, b) => LT_RANK[ltSt(b)] - LT_RANK[ltSt(a)])[0];
+        rows.push({ nama: m.nama, kelas: m.kelas || "-", ting: m.tingkatan, kump: m.kumpulan, st: best ? ltSt(best) : "Belum tempah", no: best ? best.no : "", jumlah: best ? best.jumlah : 0, bil: L.length, baru: false });
+      }
+      aktif.filter((t) => !guna.has(t.no)).forEach((t) => rows.push({ nama: t.murid || "(tiada nama)", kelas: t.kelasMurid || "Murid baharu", ting: t.tingkatan, kump: t.kumpulan, st: ltSt(t), no: t.no, jumlah: t.jumlah, bil: 1, baru: !t.kelasMurid }));
+      LT.rows = rows; LT.loaded = true;
+    } catch (e) { LT.err = "Gagal memuatkan data murid / tempahan."; }
+    LT.busy = false; KP.rerender();
+  }
+  const ltTapis = () => { const q = LT.q.toLowerCase().trim(); return LT.rows.filter((r) => (LT.ting === "Semua" || r.ting === +LT.ting.slice(1)) && (LT.kelas === "Semua" || r.kelas === LT.kelas) && (LT.st === "Semua" || r.st === LT.st) && (!q || (r.nama + " " + r.no).toLowerCase().includes(q))); };
+  function ltView() {
+    if (LT.busy) return `<div class="card pad muted">Memuatkan senarai murid dan tempahan…</div>`;
+    if (LT.err) return `<div class="card pad"><div class="muted" style="color:#b91c1c">${esc(LT.err)}</div><div style="margin-top:10px"><button class="btn" data-a="lt-muat">Cuba lagi</button></div></div>`;
+    if (!LT.loaded) return `<div class="card pad"><button class="btn cta" data-a="lt-muat">Muat laporan</button></div>`;
+    const base = LT.rows.filter((r) => LT.ting === "Semua" || r.ting === +LT.ting.slice(1)), kelasList = [...new Set(base.map((r) => r.kelas))].sort((a, b) => a.localeCompare(b, "ms", { numeric: true }));
+    const tp = ltTapis(), cnt = (st) => base.filter((r) => (LT.kelas === "Semua" || r.kelas === LT.kelas) && r.st === st).length, jml = base.filter((r) => LT.kelas === "Semua" || r.kelas === LT.kelas).length;
+    const per = {}; base.forEach((r) => { const k = per[r.kelas] = per[r.kelas] || { j: 0, "Belum tempah": 0, "Belum bayar": 0, "Sudah bayar": 0, "Selesai": 0 }; k.j++; k[r.st]++; });
+    const kad = (st) => `<button class="card kpi" data-a="lt-st" data-k="${st}" style="text-align:left;cursor:pointer;${LT.st === st ? "outline:3px solid var(--pri)" : ""}"><div class="lbl">${st}</div><div class="v">${cnt(st)}</div><div class="muted small">${jml ? Math.round((cnt(st) / jml) * 100) : 0}% daripada ${jml}</div></button>`;
+    return `<div class="card pad" style="display:flex;flex-direction:column;gap:12px"><div class="sp"><div><h2>Laporan tempahan murid</h2><div class="muted small">Status tempahan / belian set sekolah mengikut tingkatan dan kelas. Murid dipadankan dengan tempahan melalui No. KP (atau nama + kelas).</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn line sm" data-a="lt-muat">↻ Muat semula</button><button class="btn line sm" data-a="lt-csv">CSV</button><button class="btn line sm" data-a="lt-cetak">Cetak</button></div></div>
+      ${chips(["Semua", "T1", "T2", "T3", "T4", "T5", "T6"], LT.ting, "lt-t")}
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end"><label class="fld" style="flex:0 1 220px"><span class="lbl">Kelas</span><select data-i="lt-kelas"><option value="Semua">Semua kelas</option>${kelasList.map((k) => `<option ${k === LT.kelas ? "selected" : ""}>${esc(k)}</option>`).join("")}</select></label>
+      <label class="fld" style="flex:1 1 220px"><span class="lbl">Cari nama / no. invois</span><input type="search" data-i="lt-q" value="${esc(LT.q)}" placeholder="Nama murid (sebahagian pun boleh)"></label></div>
+      <div class="row">${LT_ST.map(kad).join("")}</div>
+      <div class="muted small">${LT.st === "Semua" ? "Tekan satu kad untuk menapis status." : `Menapis: <b>${LT.st}</b> · <button class="btn line sm" data-a="lt-st" data-k="Semua">Papar semua</button>`}</div></div>
+    <div class="card" style="padding:14px 0 6px;margin-top:12px"><h2 style="padding:0 16px 8px">Ringkasan mengikut kelas</h2><div class="tbl"><table><thead><tr><th>Kelas</th><th class="r">Murid</th><th class="r">Belum tempah</th><th class="r">Belum bayar</th><th class="r">Sudah bayar</th><th class="r">Selesai</th><th class="r">Selesai %</th></tr></thead><tbody>${Object.keys(per).sort((a, b) => a.localeCompare(b, "ms", { numeric: true })).map((k) => { const p = per[k]; return `<tr><td><button class="btn line sm" data-a="lt-kelas" data-k="${esc(k)}">${esc(k)}</button></td><td class="r">${p.j}</td><td class="r">${p["Belum tempah"]}</td><td class="r">${p["Belum bayar"]}</td><td class="r">${p["Sudah bayar"]}</td><td class="r">${p["Selesai"]}</td><td class="r">${Math.round((p["Selesai"] / p.j) * 100)}%</td></tr>`; }).join("") || `<tr><td colspan="7" class="muted">Tiada data.</td></tr>`}</tbody></table></div></div>
+    <div class="card" style="padding:14px 0 6px;margin-top:12px"><h2 style="padding:0 16px 8px">Senarai murid (${tp.length})</h2><div class="tbl"><table><thead><tr><th>Bil</th><th>Nama</th><th>Kelas</th><th>Kumpulan</th><th>Status</th><th>No. invois</th><th class="r">Jumlah</th></tr></thead><tbody>${tp.slice(0, 300).map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.nama)}${r.baru ? ` ${pill("baharu", "ind")}` : ""}</td><td>${esc(r.kelas)}</td><td>${esc(r.kump)}</td><td>${pill(r.st, LT_KLS[r.st])}</td><td>${r.no ? `<span style="font-family:monospace">${esc(r.no)}</span> <button class="btn line sm" data-a="jt-copy" data-k="${esc(r.no)}" style="padding:2px 8px">Salin</button>` : ""}${r.bil > 1 ? ` <span class="muted small">(${r.bil} tempahan)</span>` : ""}</td><td class="r">${r.no ? rm(r.jumlah) : ""}</td></tr>`).join("") || `<tr><td colspan="7" class="muted">Tiada murid sepadan.</td></tr>`}</tbody></table></div>${tp.length > 300 ? `<div class="muted small" style="padding:8px 16px">Memaparkan 300 pertama. Tapis ikut kelas untuk melihat selebihnya, atau muat turun CSV.</div>` : ""}</div>`;
+  }
+  KP.act["lt-muat"] = () => { LT.loaded = false; ltLoad(); };
+  KP.act["lt-t"] = (t) => { LT.ting = t.dataset.k; LT.kelas = "Semua"; KP.rerender(); };
+  KP.act["lt-st"] = (t) => { LT.st = LT.st === t.dataset.k ? "Semua" : t.dataset.k; KP.rerender(); };
+  KP.act["lt-kelas"] = (t) => { LT.kelas = t.dataset.k; const m = t.dataset.k.match(/\d/); KP.rerender(); };
+  KP.inp["lt-kelas"] = (t) => { LT.kelas = t.value; KP.rerender(); };
+  KP.inp["lt-q"] = (t) => { LT.q = t.value; const p = t.selectionStart; KP.rerender(); const n = $('[data-i="lt-q"]'); if (n) { n.focus(); n.setSelectionRange(p, p); } };
+  KP.act["lt-csv"] = () => KP.csv("laporan-tempahan-murid.csv", [["Nama", "Kelas", "Tingkatan", "Kumpulan", "Status", "No. invois", "Jumlah"]].concat(ltTapis().map((r) => [r.nama, r.kelas, r.ting, r.kump, r.st, r.no, r.no ? r.jumlah.toFixed(2) : ""])));
+  KP.act["lt-cetak"] = () => { const tp = ltTapis(); KP.printHtml(`<h2 style="margin:0 0 4px;font:700 16px Arial">Laporan Tempahan Murid</h2><div style="font:12px Arial;margin-bottom:8px">${esc(LT.ting)} · ${esc(LT.kelas === "Semua" ? "Semua kelas" : LT.kelas)} · ${esc(LT.st)} · ${tp.length} murid · ${new Date().toLocaleDateString("ms-MY")}</div><table style="border-collapse:collapse;width:100%;font:11px Arial"><thead><tr>${["Bil", "Nama", "Kelas", "Status", "No. invois", "Jumlah"].map((h) => `<th style="border:1px solid #444;padding:3px 5px;text-align:left;background:#eee">${h}</th>`).join("")}</tr></thead><tbody>${tp.map((r, i) => `<tr>${[i + 1, esc(r.nama), esc(r.kelas), r.st, r.no, r.no ? r.jumlah.toFixed(2) : ""].map((c) => `<td style="border:1px solid #444;padding:3px 5px">${c}</td>`).join("")}</tr>`).join("")}</tbody></table>`, true); };
   const T = { tab: "Guru Koop", pgn: [], guru: [], ping: "" };
   KP.pages.tetapan = {
     async load() {
@@ -543,7 +602,7 @@
       T.pgn = a.pengguna; T.guru = b ? b.guru : []; T.nota = b && b.nota;
     },
     view() {
-      const tabs = ["Guru Koop", "Kategori", "Jualan & Resit", "Sambungan"];
+      const tabs = ["Guru Koop", "Kategori", "Jualan & Resit", "Laporan Tempahan", "Sambungan"];
       let h = `<div class="chips">${tabs.map((k) => `<button class="ch ${k === T.tab ? "on" : ""}" data-a="t-tab" data-k="${k}">${k}</button>`).join("")}</div>`;
       if (T.tab === "Guru Koop") {
         const have = new Set(T.pgn.map((p) => p.emel));
@@ -553,6 +612,8 @@
           ${T.nota ? `<div class="muted small" style="padding:6px 16px">${esc(T.nota)}</div>` : ""}<div class="muted small" style="padding:8px 16px 4px">Pengguna baharu menggunakan PIN awal 1234 dan diminta menukarnya semasa log masuk pertama. Inventori = tanda asrama / luar asrama &amp; T1–T6.</div></div>`;
       } else if (T.tab === "Kategori") {
         h += `<div class="card pad" style="display:flex;flex-direction:column;gap:12px;max-width:640px"><h2>Kategori barangan</h2><div class="chips">${kats().map((k, i) => `<span class="pill p-gr" style="font-size:13px;padding:6px 12px">${esc(k)} <button class="btn sm" style="all:unset;cursor:pointer;margin-left:4px" data-a="t-kdel" data-k="${i}" aria-label="Buang ${esc(k)}">✕</button></span>`).join("")}</div><div style="display:flex;gap:8px"><input id="t-knew" placeholder="Nama kategori baharu" data-enter="t-kadd"><button class="btn" data-a="t-kadd">Tambah</button></div></div>`;
+      } else if (T.tab === "Laporan Tempahan") {
+        h += ltView();
       } else if (T.tab === "Jualan & Resit") {
         const r = KP.S.tetapan.resit || {};
         h += `<div class="card pad" style="max-width:640px;display:flex;flex-direction:column;gap:12px"><h2>Tetapan jualan &amp; resit</h2><div class="form" style="grid-template-columns:1fr 1fr"><label class="fld span2"><span class="lbl">Nama pada resit</span><input id="t-rnama" value="${esc(r.nama)}"></label><label class="fld"><span class="lbl">Awalan no. resit</span><input id="t-rawal" value="${esc(r.awalan)}"></label><label class="fld"><span class="lbl">Stok minimum lalai</span><input id="t-rmin" type="number" value="${esc(r.minLalai)}"></label></div><div style="text-align:right"><button class="btn cta" data-a="t-rsimpan">Simpan tetapan</button></div></div>
@@ -566,7 +627,7 @@
       return h;
     }
   };
-  KP.act["t-tab"] = (t) => { T.tab = t.dataset.k; KP.rerender(); };
+  KP.act["t-tab"] = (t) => { T.tab = t.dataset.k; if (T.tab === "Laporan Tempahan" && !LT.loaded && !LT.busy) ltLoad(); KP.rerender(); };
   KP.act["t-perm"] = async (t) => {
     const p = T.pgn.find((x) => x.emel === t.dataset.k), f = t.dataset.f; p[f] = p[f] ? 0 : 1;
     const j = await KP.call("savePengguna", { pengguna: { emel: p.emel, nama: p.nama, peranan: p.admin ? "Admin" : "Guru", jualan: p.jualan, stok: p.stok, inventori: p.inventori, laporan: p.laporan, aktif: p.aktif } });

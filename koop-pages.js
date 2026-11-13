@@ -538,7 +538,7 @@
   };
 
   /* ================= TETAPAN (Admin) ================= */
-  /* ================= LAPORAN TEMPAHAN MURID (dalam Tetapan) =================
+  /* ================= LAPORAN TEMPAHAN MURID =================
      Murid daripada DatabaseMurid dipadankan dengan KP_Tempahan (No. KP berhash, atau nama + kelas). Status:
      Belum tempah · Belum bayar · Sudah bayar (belum settle) · Selesai (settle). */
   const LT = { ting: "Semua", kelas: "Semua", st: "Semua", q: "", rows: [], loaded: false, busy: false, err: "" };
@@ -548,8 +548,8 @@
   const ltSt = (t) => t.status === "Selesai" ? "Selesai" : t.bayar === "Disahkan" ? "Sudah bayar" : "Belum bayar";
   const sha = async (kp) => { try { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("koopkp:" + kp)); return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join(""); } catch (e) { return ""; } };
   const nk = (x) => String(x || "").toUpperCase().replace(/[^A-Z0-9]+/g, " ").trim();
-  async function ltLoad() {
-    LT.busy = true; LT.err = ""; KP.rerender();
+  async function ltLoad(senyap) {
+    LT.busy = true; LT.err = ""; if (!senyap) KP.rerender();
     try {
       await loadMurid();
       const j = await KP.call("getTempahan"); if (!j) throw new Error("tempahan");
@@ -566,8 +566,12 @@
       aktif.filter((t) => !guna.has(t.no)).forEach((t) => rows.push({ nama: t.murid || "(tiada nama)", kelas: t.kelasMurid || "Murid baharu", ting: t.tingkatan, kump: t.kumpulan, st: ltSt(t), no: t.no, jumlah: t.jumlah, bil: 1, baru: !t.kelasMurid }));
       LT.rows = rows; LT.loaded = true;
     } catch (e) { LT.err = "Gagal memuatkan data murid / tempahan."; }
-    LT.busy = false; KP.rerender();
+    LT.busy = false; if (!senyap) KP.rerender();
   }
+  KP.pages.laptempahan = {
+    async load() { if (!LT.loaded) await ltLoad(true); },
+    view() { return `<div class="muted small" style="margin-bottom:10px">Kebenaran melihat halaman ini ditetapkan oleh Admin di Tetapan &gt; Guru Koop &amp; kebenaran (lajur Lap. Tempahan).</div>` + ltView(); }
+  };
   const ltTapis = () => { const q = LT.q.toLowerCase().trim(); return LT.rows.filter((r) => (LT.ting === "Semua" || r.ting === +LT.ting.slice(1)) && (LT.kelas === "Semua" || r.kelas === LT.kelas) && (LT.st === "Semua" || r.st === LT.st) && (!q || (r.nama + " " + r.no).toLowerCase().includes(q))); };
   function ltView() {
     if (LT.busy) return `<div class="card pad muted">Memuatkan senarai murid dan tempahan…</div>`;
@@ -602,18 +606,16 @@
       T.pgn = a.pengguna; T.guru = b ? b.guru : []; T.nota = b && b.nota;
     },
     view() {
-      const tabs = ["Guru Koop", "Kategori", "Jualan & Resit", "Laporan Tempahan", "Sambungan"];
+      const tabs = ["Guru Koop", "Kategori", "Jualan & Resit", "Sambungan"];
       let h = `<div class="chips">${tabs.map((k) => `<button class="ch ${k === T.tab ? "on" : ""}" data-a="t-tab" data-k="${k}">${k}</button>`).join("")}</div>`;
       if (T.tab === "Guru Koop") {
         const have = new Set(T.pgn.map((p) => p.emel));
-        h += `<div class="card" style="padding:14px 0 8px"><div style="padding:0 16px 10px"><h2>Guru Koop &amp; kebenaran</h2><div class="muted small">Admin App sentiasa mempunyai semua kebenaran. Perubahan disimpan terus.</div></div><div class="tbl"><table><thead><tr><th>Pengguna</th><th>Peranan</th><th class="c">Jualan</th><th class="c">Stok</th><th class="c">Inventori</th><th class="c">Laporan</th><th class="c">Aktif</th><th></th></tr></thead><tbody>${T.pgn.map((p) => { const cb = (f) => p.admin ? `<td class="c muted">✓</td>` : `<td class="c"><button class="cb ${p[f] ? "on" : ""}" data-a="t-perm" data-k="${esc(p.emel)}" data-f="${f}" aria-label="${f} ${esc(p.nama)}">${p[f] ? "✓" : ""}</button></td>`; return `<tr><td><b>${esc(p.nama)}</b><div class="muted small">${esc(p.emel)}</div></td><td>${p.admin ? pill("Admin App", "info") : pill("Guru Koop", "ok")}</td>${cb("jualan")}${cb("stok")}${cb("inventori")}${cb("laporan")}<td class="c"><button class="cb ${p.aktif ? "on" : ""}" data-a="t-perm" data-k="${esc(p.emel)}" data-f="aktif" aria-label="Aktif ${esc(p.nama)}">${p.aktif ? "✓" : ""}</button></td><td><button class="btn line sm" data-a="t-reset" data-k="${esc(p.emel)}">Reset PIN</button></td></tr>`; }).join("")}</tbody></table></div>
+        h += `<div class="card" style="padding:14px 0 8px"><div style="padding:0 16px 10px"><h2>Guru Koop &amp; kebenaran</h2><div class="muted small">Admin App sentiasa mempunyai semua kebenaran. Perubahan disimpan terus.</div></div><div class="tbl"><table><thead><tr><th>Pengguna</th><th>Peranan</th><th class="c">Jualan</th><th class="c">Stok</th><th class="c">Inventori</th><th class="c">Laporan</th><th class="c">Lap. Tempahan</th><th class="c">Aktif</th><th></th></tr></thead><tbody>${T.pgn.map((p) => { const cb = (f) => p.admin ? `<td class="c muted">✓</td>` : `<td class="c"><button class="cb ${p[f] ? "on" : ""}" data-a="t-perm" data-k="${esc(p.emel)}" data-f="${f}" aria-label="${f} ${esc(p.nama)}">${p[f] ? "✓" : ""}</button></td>`; return `<tr><td><b>${esc(p.nama)}</b><div class="muted small">${esc(p.emel)}</div></td><td>${p.admin ? pill("Admin App", "info") : pill("Guru Koop", "ok")}</td>${cb("jualan")}${cb("stok")}${cb("inventori")}${cb("laporan")}${cb("laptempahan")}<td class="c"><button class="cb ${p.aktif ? "on" : ""}" data-a="t-perm" data-k="${esc(p.emel)}" data-f="aktif" aria-label="Aktif ${esc(p.nama)}">${p.aktif ? "✓" : ""}</button></td><td><button class="btn line sm" data-a="t-reset" data-k="${esc(p.emel)}">Reset PIN</button></td></tr>`; }).join("")}</tbody></table></div>
           <div style="padding:12px 16px 4px;display:flex;flex-wrap:wrap;gap:10px;align-items:end"><label class="fld" style="flex:1 1 260px"><span class="lbl">Tambah daripada senarai guru app-smasra</span><select id="t-guru"><option value="">— pilih guru —</option>${T.guru.filter((g) => !have.has(g.emel)).map((g) => `<option value="${esc(g.emel)}" data-n="${esc(g.nama)}">${esc(g.nama)} (${esc(g.emel)})</option>`).join("")}</select></label>
           <label class="fld" style="flex:1 1 200px"><span class="lbl">atau taip emel</span><input id="t-emel" type="email"></label><label class="fld" style="flex:0 1 150px"><span class="lbl">Peranan</span><select id="t-per"><option value="Guru">Guru Koop</option><option value="Admin">Admin App</option></select></label><button class="btn cta" data-a="t-tambah">+ Tambah</button></div>
           ${T.nota ? `<div class="muted small" style="padding:6px 16px">${esc(T.nota)}</div>` : ""}<div class="muted small" style="padding:8px 16px 4px">Pengguna baharu menggunakan PIN awal 1234 dan diminta menukarnya semasa log masuk pertama. Inventori = tanda asrama / luar asrama &amp; T1–T6.</div></div>`;
       } else if (T.tab === "Kategori") {
         h += `<div class="card pad" style="display:flex;flex-direction:column;gap:12px;max-width:640px"><h2>Kategori barangan</h2><div class="chips">${kats().map((k, i) => `<span class="pill p-gr" style="font-size:13px;padding:6px 12px">${esc(k)} <button class="btn sm" style="all:unset;cursor:pointer;margin-left:4px" data-a="t-kdel" data-k="${i}" aria-label="Buang ${esc(k)}">✕</button></span>`).join("")}</div><div style="display:flex;gap:8px"><input id="t-knew" placeholder="Nama kategori baharu" data-enter="t-kadd"><button class="btn" data-a="t-kadd">Tambah</button></div></div>`;
-      } else if (T.tab === "Laporan Tempahan") {
-        h += ltView();
       } else if (T.tab === "Jualan & Resit") {
         const r = KP.S.tetapan.resit || {};
         h += `<div class="card pad" style="max-width:640px;display:flex;flex-direction:column;gap:12px"><h2>Tetapan jualan &amp; resit</h2><div class="form" style="grid-template-columns:1fr 1fr"><label class="fld span2"><span class="lbl">Nama pada resit</span><input id="t-rnama" value="${esc(r.nama)}"></label><label class="fld"><span class="lbl">Awalan no. resit</span><input id="t-rawal" value="${esc(r.awalan)}"></label><label class="fld"><span class="lbl">Stok minimum lalai</span><input id="t-rmin" type="number" value="${esc(r.minLalai)}"></label></div><div style="text-align:right"><button class="btn cta" data-a="t-rsimpan">Simpan tetapan</button></div></div>
@@ -627,10 +629,10 @@
       return h;
     }
   };
-  KP.act["t-tab"] = (t) => { T.tab = t.dataset.k; if (T.tab === "Laporan Tempahan" && !LT.loaded && !LT.busy) ltLoad(); KP.rerender(); };
+  KP.act["t-tab"] = (t) => { T.tab = t.dataset.k; KP.rerender(); };
   KP.act["t-perm"] = async (t) => {
     const p = T.pgn.find((x) => x.emel === t.dataset.k), f = t.dataset.f; p[f] = p[f] ? 0 : 1;
-    const j = await KP.call("savePengguna", { pengguna: { emel: p.emel, nama: p.nama, peranan: p.admin ? "Admin" : "Guru", jualan: p.jualan, stok: p.stok, inventori: p.inventori, laporan: p.laporan, aktif: p.aktif } });
+    const j = await KP.call("savePengguna", { pengguna: { emel: p.emel, nama: p.nama, peranan: p.admin ? "Admin" : "Guru", jualan: p.jualan, stok: p.stok, inventori: p.inventori, laporan: p.laporan, laptempahan: p.laptempahan, aktif: p.aktif } });
     if (!j) { p[f] = p[f] ? 0 : 1; } KP.rerender();
   };
   KP.act["t-reset"] = async (t) => { if (!confirm("Set semula PIN pengguna ini kepada 1234?")) return; const j = await KP.call("resetPin", { emel: t.dataset.k }); if (j) KP.toast("PIN ditetapkan semula kepada 1234."); };
@@ -638,7 +640,7 @@
     const sel = $("#t-guru"), emel = (val("t-emel") || sel.value).trim(), nama = val("t-emel") ? "" : (sel.selectedOptions[0] && sel.selectedOptions[0].dataset.n) || "";
     if (!emel) { KP.toast("Pilih guru atau taip emel.", true); return; }
     const admin = val("t-per") === "Admin";
-    const j = await KP.call("savePengguna", { pengguna: { emel, nama, peranan: admin ? "Admin" : "Guru", jualan: 1, stok: 0, inventori: 0, laporan: 0, aktif: 1 } });
+    const j = await KP.call("savePengguna", { pengguna: { emel, nama, peranan: admin ? "Admin" : "Guru", jualan: 1, stok: 0, inventori: 0, laporan: 0, laptempahan: 0, aktif: 1 } });
     if (!j) return; KP.toast(j.baru ? "Pengguna ditambah. PIN awal 1234." : "Pengguna dikemas kini."); KP.draw(true);
   };
   const saveKat = async (arr) => { const j = await KP.call("saveTetapan", { kategori: arr }); if (!j) return; KP.S.tetapan = j.tetapan; KP.rerender(); };

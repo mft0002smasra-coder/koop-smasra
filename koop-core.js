@@ -85,6 +85,7 @@ const KP = {
     ["inventori", "Inventori & Akses", "M4 5h16v14H4z M8 12l3 3 5-6", (u) => u.inventori],
     ["stok", "Stok", "M3 7h11v9H3z M14 10h4l3 3v3h-7z M7 19h.01 M17 19h.01", (u) => u.stok],
     ["laporan", "Laporan", "M4 20V10 M10 20V4 M16 20v-7 M22 20H2", (u) => u.laporan],
+    ["laptempahan", "Laporan Tempahan", "M9 3h6l1 2h3v16H5V5h3z M9 12h6 M9 16h4", (u) => u.laptempahan],
     ["tetapan", "Tetapan", "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M12 2v3 M12 19v3 M2 12h3 M19 12h3 M5 5l2 2 M17 17l2 2 M19 5l-2 2 M7 17l-2 2", (u) => u.admin]
   ],
   go(k) { if (location.hash === "#/" + k) KP.draw(true); else location.hash = "#/" + k; },

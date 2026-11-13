@@ -77,7 +77,7 @@ KP.data = (function () {
   }
 
   async function getPengguna() {
-    return { success: true, pengguna: (await gv("KP_Pengguna")).filter((x) => s(x.EMEL)).map((x) => { const a = x.PERANAN === "Admin"; return { emel: s(x.EMEL).toLowerCase(), nama: s(x.NAMA), peranan: s(x.PERANAN), admin: a, jualan: a || !!f1(x.JUALAN), stok: a || !!f1(x.STOK), inventori: a || !!f1(x.INVENTORI), laporan: a || !!f1(x.LAPORAN), aktif: f1(x.AKTIF) }; }) };
+    return { success: true, pengguna: (await gv("KP_Pengguna")).filter((x) => s(x.EMEL)).map((x) => { const a = x.PERANAN === "Admin"; return { emel: s(x.EMEL).toLowerCase(), nama: s(x.NAMA), peranan: s(x.PERANAN), admin: a, jualan: a || !!f1(x.JUALAN), stok: a || !!f1(x.STOK), inventori: a || !!f1(x.INVENTORI), laporan: a || !!f1(x.LAPORAN), laptempahan: a || !!f1(x.LAPTEMPAHAN), aktif: f1(x.AKTIF) }; }) };
   }
 
   async function getTempahan() {

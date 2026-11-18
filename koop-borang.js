@@ -192,12 +192,11 @@ const KP_LOGO = "https://lh3.googleusercontent.com/d/1JFlMpX8nCN4ZKW9SRiNdtFT-UC
   }
   function billView() {
     const t = F.done;
-    return HDR("Tempahan telah dibuat", "Tempahan anda telah diterima oleh koperasi.", false) + `<div class="card pad ok-box"><b>✓ Tempahan ${esc(t.no)} telah dibuat.</b><div class="small" style="margin-top:4px">Anda boleh <b>terus membuat pembayaran</b> (pindahan / QR dan muat naik bukti) atau <b>bayar tunai di koperasi</b>. Muat turun invoice di bawah untuk imbasan QR akaun koperasi.</div></div>
-      ${F.cash ? `<div class="note">Sila bawa invoice (atau tunjuk QR) ke kaunter koperasi untuk bayaran tunai dan pengambilan barang. Terima kasih.</div>` : ""}
+    return HDR("Tempahan telah dibuat", "Tempahan anda telah diterima oleh koperasi.", false) + `<div class="card pad ok-box"><b>✓ Tempahan ${esc(t.no)} telah dibuat.</b><div class="small" style="margin-top:4px">Anda boleh <b>terus membuat pembayaran</b> (pindahan / QR dan muat naik bukti) . Muat turun invoice di bawah untuk imbasan QR akaun koperasi.</div></div>
       <div class="card pad" style="display:flex;flex-direction:column;gap:12px">${billHtml(t)}
         <button class="btn cta" data-a="pdf">⬇ Muat turun invoice (PDF)</button>
         <div class="card pad" style="text-align:center;background:#FAF5FF"><b>QR akaun Koperasi untuk pembayaran</b><div style="margin:10px 0"><img alt="QR akaun Koperasi" src="${F.qrPay || KP_QR_DRIVE}" referrerpolicy="no-referrer" style="max-width:240px;width:100%;border-radius:12px;background:#fff"></div><button class="btn line" data-a="dlqr">⬇ Muat turun gambar QR</button></div>
-        <div class="sp" style="gap:8px;flex-wrap:wrap"><button class="btn" data-a="teruskan">Teruskan pembayaran</button><button class="btn line" data-a="tunai">Bayar tunai di koperasi</button></div>
+        <div class="sp" style="gap:8px;flex-wrap:wrap"><button class="btn" data-a="teruskan">Teruskan pembayaran</button></div>
         <button class="btn line" data-a="baru">Buat tempahan lain</button></div>`;
   }
   function bayarView() {
@@ -326,7 +325,6 @@ const KP_LOGO = "https://lh3.googleusercontent.com/d/1JFlMpX8nCN4ZKW9SRiNdtFT-UC
       F.rbusy = false; draw();
     },
     resitpdf: (t) => { const x = (F.rres || []).find((y) => y.no === t.dataset.k); if (!x || !x.resit) return; const d = buatResitPdf(x.resit, x); if (d) d.save("Resit-" + x.resit.no + ".pdf"); },
-    tunai: () => { F.cash = true; draw(); window.scrollTo(0, 0); },
     teruskan: () => { F.view = "bayar"; F.bq = F.done.no; F.bres = null; F.berr = ""; F.bmsg = {}; draw(); ACT.semak(); },
     semak: async () => {
       const q = (F.bq || "").trim(); F.berr = ""; F.bres = null;
